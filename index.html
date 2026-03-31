@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>SentinelAI — Smart Hotel Surveillance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --black:#0a0a0c;
+  --surface:#111116;
+  --card:#16161e;
+  --border:#ffffff12;
+  --accent:#00e5a0;
+  --accent2:#ff4444;
+  --accent3:#ffa500;
+  --text:#f0f0f0;
+  --muted:#6b6b7a;
+  --red:#ff3b3b;
+  --amber:#ffb020;
+  --green:#00e5a0;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--black);color:var(--text);font-family:'DM Sans',sans-serif;overflow-x:hidden}
+
+/* NOISE OVERLAY */
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");pointer-events:none;z-index:0;opacity:.4}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:1.2rem 2.5rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);backdrop-filter:blur(20px);background:rgba(10,10,12,.8)}
+.logo{display:flex;align-items:center;gap:.6rem;font-family:'Syne',sans-serif;font-weight:800;font-size:1.2rem;letter-spacing:-.5px}
+.logo-dot{width:8px;height:8px;background:var(--accent);border-radius:50%;animation:blink 1.5s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1;box-shadow:0 0 0 0 var(--accent)}50%{opacity:.5;box-shadow:0 0 0 6px transparent}}
+.nav-links{display:flex;gap:2rem;list-style:none}
+.nav-links a{color:var(--muted);text-decoration:none;font-size:.88rem;transition:color .2s}
+.nav-links a:hover{color:var(--text)}
+.nav-cta{background:var(--accent);color:#000;padding:.45rem 1.2rem;border-radius:6px;font-size:.85rem;font-weight:500;text-decoration:none;transition:opacity .2s}
+.nav-cta:hover{opacity:.85}
+
+/* HERO */
+.hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:6rem 2rem 4rem;position:relative;overflow:hidden}
+.hero-grid{position:absolute;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:60px 60px;opacity:.4}
+.hero-glow{position:absolute;top:30%;left:50%;transform:translate(-50%,-50%);width:600px;height:300px;background:radial-gradient(ellipse,rgba(0,229,160,.08) 0%,transparent 70%);pointer-events:none}
+.hero-glow2{position:absolute;top:60%;left:30%;width:400px;height:200px;background:radial-gradient(ellipse,rgba(255,68,68,.06) 0%,transparent 70%);pointer-events:none}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;background:rgba(0,229,160,.08);border:1px solid rgba(0,229,160,.25);color:var(--accent);padding:.35rem 1rem;border-radius:99px;font-size:.78rem;font-weight:500;letter-spacing:.5px;margin-bottom:2rem;position:relative;z-index:1}
+.hero-badge::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--accent);animation:blink 1.5s infinite}
+h1{font-family:'Syne',sans-serif;font-size:clamp(2.8rem,7vw,5.5rem);font-weight:800;line-height:1.05;letter-spacing:-2px;position:relative;z-index:1}
+h1 .accent{color:var(--accent)}
+h1 .line2{color:var(--muted)}
+.hero-sub{font-size:1.1rem;color:var(--muted);max-width:560px;margin:1.5rem auto;line-height:1.7;position:relative;z-index:1;font-weight:300}
+.hero-actions{display:flex;gap:1rem;margin-top:2.5rem;justify-content:center;position:relative;z-index:1;flex-wrap:wrap}
+.btn-primary{background:var(--accent);color:#000;padding:.75rem 2rem;border-radius:8px;font-size:.95rem;font-weight:500;text-decoration:none;transition:all .2s;display:flex;align-items:center;gap:.5rem}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,229,160,.3)}
+.btn-outline{border:1px solid var(--border);color:var(--text);padding:.75rem 2rem;border-radius:8px;font-size:.95rem;text-decoration:none;transition:all .2s;display:flex;align-items:center;gap:.5rem}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+.hero-stats{display:flex;gap:3rem;margin-top:4rem;position:relative;z-index:1;justify-content:center;flex-wrap:wrap}
+.hstat{text-align:center}
+.hstat-num{font-family:'Syne',sans-serif;font-size:2.2rem;font-weight:800;color:var(--accent)}
+.hstat-lbl{font-size:.78rem;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;margin-top:.2rem}
+
+/* MARQUEE */
+.marquee-wrap{overflow:hidden;padding:1.5rem 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface);margin-top:4rem}
+.marquee{display:flex;gap:3rem;animation:scroll 20s linear infinite;width:max-content}
+@keyframes scroll{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+.marquee-item{display:flex;align-items:center;gap:.5rem;color:var(--muted);font-size:.82rem;font-weight:500;letter-spacing:.5px;white-space:nowrap}
+.marquee-dot{width:4px;height:4px;border-radius:50%;background:var(--accent)}
+
+/* SECTION */
+section{padding:6rem 2rem;max-width:1100px;margin:0 auto;position:relative;z-index:1}
+.section-label{font-size:.75rem;letter-spacing:2px;text-transform:uppercase;color:var(--accent);font-weight:500;margin-bottom:1rem}
+.section-title{font-family:'Syne',sans-serif;font-size:clamp(2rem,4vw,3rem);font-weight:800;letter-spacing:-1px;line-height:1.1}
+.section-sub{color:var(--muted);font-size:1rem;margin-top:1rem;max-width:500px;line-height:1.7;font-weight:300}
+
+/* WORKFLOW */
+.workflow-wrap{margin-top:4rem}
+.workflow-steps{display:flex;gap:0;flex-wrap:wrap}
+.wf-step{flex:1;min-width:130px;position:relative;padding:1.5rem 1rem 1.5rem 0}
+.wf-step:not(:last-child)::after{content:'→';position:absolute;right:-8px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:1.2rem}
+.wf-num{font-family:'Syne',sans-serif;font-size:2.5rem;font-weight:800;color:var(--border);line-height:1;margin-bottom:.5rem}
+.wf-title{font-weight:500;font-size:.95rem;margin-bottom:.3rem;color:var(--text)}
+.wf-desc{font-size:.78rem;color:var(--muted);line-height:1.5}
+.wf-step.highlight .wf-num{color:var(--accent)}
+.wf-step.highlight .wf-title{color:var(--accent)}
+
+/* FEATURES */
+.features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1px;margin-top:3rem;background:var(--border);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.feature{background:var(--card);padding:2rem;transition:background .2s}
+.feature:hover{background:#1a1a24}
+.feat-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;margin-bottom:1.2rem}
+.feat-icon.fire{background:rgba(255,59,59,.1)}
+.feat-icon.accident{background:rgba(255,176,32,.1)}
+.feat-icon.violence{background:rgba(168,85,247,.1)}
+.feat-icon.suspicious{background:rgba(59,130,246,.1)}
+.feat-icon.orchestrate{background:rgba(0,229,160,.1)}
+.feat-icon.report{background:rgba(255,165,0,.1)}
+.feat-title{font-weight:500;font-size:1rem;margin-bottom:.5rem}
+.feat-desc{font-size:.85rem;color:var(--muted);line-height:1.6}
+
+/* TECH */
+.tech-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1rem;margin-top:2.5rem}
+.tech-pill{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:.75rem 1rem;text-align:center;font-size:.82rem;font-weight:500;transition:all .2s}
+.tech-pill:hover{border-color:var(--accent);color:var(--accent)}
+
+/* DASHBOARD PREVIEW */
+.preview-wrap{margin-top:3rem;border:1px solid var(--border);border-radius:16px;overflow:hidden;background:var(--card)}
+.preview-bar{padding:.75rem 1rem;background:var(--surface);display:flex;align-items:center;gap:.5rem;border-bottom:1px solid var(--border)}
+.preview-dots{display:flex;gap:.4rem}
+.pdot{width:10px;height:10px;border-radius:50%}
+.preview-title{font-size:.78rem;color:var(--muted);margin-left:.5rem;letter-spacing:.3px}
+.preview-img{width:100%;display:block;background:var(--black);padding:1.5rem}
+.dash-mock{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:.75rem}
+.dash-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.75rem}
+.dc-val{font-family:'Syne',sans-serif;font-size:1.6rem;font-weight:800}
+.dc-lbl{font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:.2rem}
+.dash-bottom{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.dash-panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.75rem}
+.dp-title{font-size:.65rem;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:.5rem}
+.inc-row{display:flex;align-items:center;gap:.5rem;padding:.35rem 0;border-bottom:1px solid var(--border);font-size:.7rem}
+.inc-row:last-child{border:none}
+.inc-badge{padding:1px 6px;border-radius:4px;font-size:.6rem;font-weight:600}
+.badge-red{background:rgba(255,59,59,.15);color:#ff5555}
+.badge-amber{background:rgba(255,176,32,.15);color:#ffb020}
+.badge-green{background:rgba(0,229,160,.15);color:#00e5a0}
+.inc-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+
+/* TEAM */
+.team-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;margin-top:2.5rem}
+.team-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.2rem;text-align:center;transition:all .2s}
+.team-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.av{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;margin:0 auto .75rem}
+.av-red{background:rgba(255,59,59,.15);color:#ff5555}
+.av-blue{background:rgba(59,130,246,.15);color:#3b82f6}
+.av-green{background:rgba(0,229,160,.15);color:#00e5a0}
+.av-amber{background:rgba(255,176,32,.15);color:#ffb020}
+.av-purple{background:rgba(168,85,247,.15);color:#a855f7}
+.team-name{font-weight:500;font-size:.9rem;margin-bottom:.2rem}
+.team-role{font-size:.75rem;color:var(--muted)}
+
+/* ALERT TYPES */
+.alert-types{display:grid;grid-template-columns:repeat(2,1fr);gap:1rem;margin-top:2.5rem}
+.alert-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.5rem;position:relative;overflow:hidden;transition:all .2s}
+.alert-card:hover{transform:translateY(-2px)}
+.alert-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.alert-card.fire::before{background:var(--red)}
+.alert-card.violence::before{background:#a855f7}
+.alert-card.suspicious::before{background:var(--amber)}
+.alert-card.accident::before{background:#3b82f6}
+.alert-title{font-family:'Syne',sans-serif;font-weight:700;font-size:1.1rem;margin-bottom:.3rem}
+.alert-method{font-size:.78rem;color:var(--muted);line-height:1.5}
+.alert-tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.68rem;font-weight:600;margin-top:.75rem;letter-spacing:.3px}
+.tag-critical{background:rgba(255,59,59,.15);color:#ff5555}
+.tag-high{background:rgba(168,85,247,.15);color:#a855f7}
+.tag-medium{background:rgba(255,176,32,.15);color:#ffb020}
+
+/* FOOTER */
+footer{border-top:1px solid var(--border);padding:2rem 2.5rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:gap;gap:1rem}
+.footer-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:1rem}
+.footer-txt{font-size:.78rem;color:var(--muted)}
+
+/* ANIM */
+.fade-up{opacity:0;transform:translateY(24px);animation:fadeUp .6s forwards}
+@keyframes fadeUp{to{opacity:1;transform:none}}
+.delay-1{animation-delay:.1s}.delay-2{animation-delay:.2s}.delay-3{animation-delay:.3s}.delay-4{animation-delay:.4s}
+
+/* SCAN LINE effect on hero */
+.scan-line{position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.4;animation:scan 4s ease-in-out infinite}
+@keyframes scan{0%{top:0}100%{top:100%}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    SentinelAI
+  </div>
+  <ul class="nav-links">
+    <li><a href="#features">Features</a></li>
+    <li><a href="#workflow">Workflow</a></li>
+    <li><a href="#tech">Tech Stack</a></li>
+    <li><a href="#detections">Detections</a></li>
+  </ul>
+  <a href="/dashboard" class="nav-cta">Live Dashboard →</a>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-grid"></div>
+  <div class="hero-glow"></div>
+  <div class="hero-glow2"></div>
+  <div class="scan-line"></div>
+
+  <div class="hero-badge fade-up">HACKATHON PROJECT · SMART SURVEILLANCE</div>
+
+  <h1 class="fade-up delay-1">
+    <span class="accent">AI-Powered</span><br>
+    <span>Crisis Orchestration</span><br>
+    <span class="line2">for Smart Hotels</span>
+  </h1>
+
+  <p class="hero-sub fade-up delay-2">
+    No Raspberry Pi. No hardware cost. Just your phone camera, a laptop, and computer vision that detects, decides, assigns and resolves crises in real time.
+  </p>
+
+  <div class="hero-actions fade-up delay-3">
+    <a href="/dashboard" class="btn-primary">
+      <span style="width:8px;height:8px;border-radius:50%;background:#000;animation:blink 1.5s infinite"></span>
+      Open Live Dashboard
+    </a>
+    <a href="#workflow" class="btn-outline">See How It Works</a>
+  </div>
+
+  <div class="hero-stats fade-up delay-4">
+    <div class="hstat"><div class="hstat-num">&lt;3s</div><div class="hstat-lbl">Alert Response</div></div>
+    <div class="hstat"><div class="hstat-num">4</div><div class="hstat-lbl">AI Detectors</div></div>
+    <div class="hstat"><div class="hstat-num">100%</div><div class="hstat-lbl">Software Only</div></div>
+    <div class="hstat"><div class="hstat-num">0₹</div><div class="hstat-lbl">Hardware Cost</div></div>
+  </div>
+</div>
+
+<!-- MARQUEE -->
+<div class="marquee-wrap">
+  <div class="marquee">
+    <div class="marquee-item"><div class="marquee-dot"></div>FIRE DETECTION</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>ACCIDENT DETECTION</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>VIOLENCE DETECTION</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>CROWD MONITORING</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>INTRUSION ALERTS</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>LOITERING DETECTION</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>REAL-TIME DASHBOARD</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>AUTO STAFF ASSIGNMENT</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>INCIDENT REPORTS</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>PHONE CAMERA READY</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>FIRE DETECTION</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>ACCIDENT DETECTION</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>VIOLENCE DETECTION</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>CROWD MONITORING</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>INTRUSION ALERTS</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>LOITERING DETECTION</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>REAL-TIME DASHBOARD</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>AUTO STAFF ASSIGNMENT</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>INCIDENT REPORTS</div>
+    <div class="marquee-item"><div class="marquee-dot"></div>PHONE CAMERA READY</div>
+  </div>
+</div>
+
+<!-- WORKFLOW -->
+<section id="workflow">
+  <div class="section-label">The Process</div>
+  <h2 class="section-title">Detect → Decide → Assign<br>→ Coordinate → Track → Report</h2>
+  <p class="section-sub">Six automated stages replace manual radio calls, confusion and delayed responses.</p>
+  <div class="workflow-wrap">
+    <div class="workflow-steps">
+      <div class="wf-step highlight">
+        <div class="wf-num">01</div>
+        <div class="wf-title">Detect</div>
+        <div class="wf-desc">AI models analyze live feed. Fire, violence, accidents and suspicious activity flagged in milliseconds.</div>
+      </div>
+      <div class="wf-step">
+        <div class="wf-num">02</div>
+        <div class="wf-title">Decide</div>
+        <div class="wf-desc">Orchestration layer classifies severity — CRITICAL, HIGH or MEDIUM — and selects the right protocol.</div>
+      </div>
+      <div class="wf-step">
+        <div class="wf-num">03</div>
+        <div class="wf-title">Assign</div>
+        <div class="wf-desc">Right personnel auto-dispatched in real time. Security, medical, manager — the exact roles needed.</div>
+      </div>
+      <div class="wf-step">
+        <div class="wf-num">04</div>
+        <div class="wf-title">Coordinate</div>
+        <div class="wf-desc">Centralized dashboard keeps everyone aligned. Live status, locations and task assignments visible to all.</div>
+      </div>
+      <div class="wf-step">
+        <div class="wf-num">05</div>
+        <div class="wf-title">Track</div>
+        <div class="wf-desc">Every action logged with timestamps. Real-time activity feed. Zone heatmaps show incident clusters.</div>
+      </div>
+      <div class="wf-step highlight">
+        <div class="wf-num">06</div>
+        <div class="wf-title">Report</div>
+        <div class="wf-desc">Automated incident reports generated and sent to management with response times and recommendations.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DETECTION TYPES -->
+<section id="detections" style="padding-top:0">
+  <div class="section-label">AI Detection Modules</div>
+  <h2 class="section-title">Four Layers of<br>Intelligent Detection</h2>
+  <div class="alert-types">
+    <div class="alert-card fire">
+      <div class="alert-title">🔥 Fire Detection</div>
+      <div class="alert-method">Multi-layer HSV color filtering with brightness validation, flicker analysis and edge irregularity checks. Eliminates false positives from skin tones and fabric.</div>
+      <div class="alert-tag tag-critical">CRITICAL SEVERITY</div>
+    </div>
+    <div class="alert-card violence">
+      <div class="alert-title">🥊 Violence Detection</div>
+      <div class="alert-method">Farneback optical flow + frame-difference burst analysis. Detects sudden chaotic motion spikes. No model download needed — pure mathematics.</div>
+      <div class="alert-tag tag-high">HIGH SEVERITY</div>
+    </div>
+    <div class="alert-card accident">
+      <div class="alert-title">🚗 Accident Detection</div>
+      <div class="alert-method">YOLOv8n detects vehicles and persons. IoU overlap logic flags car-person and car-car collisions in real time. Falls back to motion blobs.</div>
+      <div class="alert-tag tag-high">HIGH SEVERITY</div>
+    </div>
+    <div class="alert-card suspicious">
+      <div class="alert-title">🚨 Suspicious Activity</div>
+      <div class="alert-method">Crowd detection, intrusion zone monitoring, loitering tracking and after-hours activity flagging. YOLO-powered person counting eliminates furniture false positives.</div>
+      <div class="alert-tag tag-medium">MEDIUM SEVERITY</div>
+    </div>
+  </div>
+</section>
+
+<!-- DASHBOARD PREVIEW -->
+<section style="padding-top:0">
+  <div class="section-label">Live Dashboard</div>
+  <h2 class="section-title">Crisis Command Center</h2>
+  <p class="section-sub">Real-time incident monitoring, staff deployment, activity logs and zone heatmaps — all in one screen.</p>
+  <div class="preview-wrap">
+    <div class="preview-bar">
+      <div class="preview-dots">
+        <div class="pdot" style="background:#ff5f57"></div>
+        <div class="pdot" style="background:#ffbd2e"></div>
+        <div class="pdot" style="background:#28c840"></div>
+      </div>
+      <span class="preview-title">SentinelAI — Crisis Orchestration Dashboard · localhost:5000/dashboard</span>
+    </div>
+    <div class="preview-img">
+      <div class="dash-mock">
+        <div class="dash-card"><div class="dc-val" style="color:#ff5555">2</div><div class="dc-lbl">Active Incidents</div></div>
+        <div class="dash-card"><div class="dc-val" style="color:#00e5a0">5</div><div class="dc-lbl">Teams Deployed</div></div>
+        <div class="dash-card"><div class="dc-val" style="color:#3b82f6">2m14s</div><div class="dc-lbl">Avg Response</div></div>
+        <div class="dash-card"><div class="dc-val" style="color:#ffb020">7</div><div class="dc-lbl">Resolved Today</div></div>
+      </div>
+      <div class="dash-bottom">
+        <div class="dash-panel">
+          <div class="dp-title">Active Incidents</div>
+          <div class="inc-row"><div class="inc-dot" style="background:#ff5555"></div><span style="flex:1;font-size:.7rem">Fire — Kitchen Floor 2</span><span class="inc-badge badge-red">ACTIVE</span></div>
+          <div class="inc-row"><div class="inc-dot" style="background:#ffb020"></div><span style="flex:1;font-size:.7rem">Suspicious — Parking B3</span><span class="inc-badge badge-amber">ASSIGNED</span></div>
+          <div class="inc-row"><div class="inc-dot" style="background:#00e5a0"></div><span style="flex:1;font-size:.7rem">Violence — Corridor B</span><span class="inc-badge badge-green">RESOLVED</span></div>
+        </div>
+        <div class="dash-panel">
+          <div class="dp-title">Live Activity Log</div>
+          <div style="font-size:.65rem;color:#6b6b7a;line-height:2">
+            <div style="color:#ff5555">13:41 FIRE detected: Kitchen Floor 2</div>
+            <div style="color:#3b82f6">13:42 Riya Sharma + Dr. Nair dispatched</div>
+            <div style="color:#ffb020">13:49 Suspicious: Parking B3 flagged</div>
+            <div style="color:#00e5a0">13:52 Incident #3 resolved</div>
+            <div style="color:#6b6b7a">13:54 System monitoring active...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div style="text-align:center;margin-top:2rem">
+    <a href="/dashboard" class="btn-primary" style="display:inline-flex">Open Live Dashboard →</a>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features" style="padding-top:0">
+  <div class="section-label">Capabilities</div>
+  <h2 class="section-title">Everything a Hotel<br>Needs to Stay Safe</h2>
+  <div class="features-grid">
+    <div class="feature">
+      <div class="feat-icon fire">🔥</div>
+      <div class="feat-title">Fire Detection</div>
+      <div class="feat-desc">HSV color filtering with flicker + brightness validation. 8-frame confirmation prevents false alarms.</div>
+    </div>
+    <div class="feature">
+      <div class="feat-icon accident">🚗</div>
+      <div class="feat-title">Accident Detection</div>
+      <div class="feat-desc">YOLOv8 detects vehicles and persons. IoU overlap logic identifies collisions automatically.</div>
+    </div>
+    <div class="feature">
+      <div class="feat-icon violence">🥊</div>
+      <div class="feat-title">Violence Detection</div>
+      <div class="feat-desc">Optical flow magnitude analysis detects sudden aggression. No model needed — pure OpenCV.</div>
+    </div>
+    <div class="feature">
+      <div class="feat-icon suspicious">🚨</div>
+      <div class="feat-title">Suspicious Activity</div>
+      <div class="feat-desc">Crowd monitoring, intrusion zones, loitering timers and after-hours activity detection.</div>
+    </div>
+    <div class="feature">
+      <div class="feat-icon orchestrate">⚡</div>
+      <div class="feat-title">Auto Orchestration</div>
+      <div class="feat-desc">Crisis protocols auto-dispatch the right staff instantly. Security, medical, management — all notified simultaneously.</div>
+    </div>
+    <div class="feature">
+      <div class="feat-icon report">📊</div>
+      <div class="feat-title">Automated Reports</div>
+      <div class="feat-desc">Incident reports auto-generated with response times, resolution rates and improvement recommendations.</div>
+    </div>
+  </div>
+</section>
+
+<!-- TECH STACK -->
+<section id="tech" style="padding-top:0">
+  <div class="section-label">Technology</div>
+  <h2 class="section-title">Built With Modern,<br>Open Source Tools</h2>
+  <p class="section-sub">No proprietary hardware. No cloud dependency. Runs entirely on a standard laptop.</p>
+  <div class="tech-grid">
+    <div class="tech-pill">Python 3.8+</div>
+    <div class="tech-pill">OpenCV 4.8</div>
+    <div class="tech-pill">YOLOv8</div>
+    <div class="tech-pill">Flask</div>
+    <div class="tech-pill">Socket.IO</div>
+    <div class="tech-pill">NumPy</div>
+    <div class="tech-pill">DroidCam</div>
+    <div class="tech-pill">HSV Filtering</div>
+    <div class="tech-pill">Optical Flow</div>
+    <div class="tech-pill">Background Sub.</div>
+    <div class="tech-pill">MJPEG Stream</div>
+    <div class="tech-pill">REST API</div>
+  </div>
+</section>
+
+<!-- TEAM / STAFF -->
+<section style="padding-top:0">
+  <div class="section-label">Auto-Assigned Personnel</div>
+  <h2 class="section-title">Right Person,<br>Right Incident, Instantly</h2>
+  <p class="section-sub">The orchestration layer knows which staff to deploy based on incident type. No manual coordination needed.</p>
+  <div class="team-row">
+    <div class="team-card"><div class="av av-red">RS</div><div class="team-name">Riya Sharma</div><div class="team-role">Head of Security</div></div>
+    <div class="team-card"><div class="av av-blue">AP</div><div class="team-name">Arjun Patel</div><div class="team-role">Duty Manager</div></div>
+    <div class="team-card"><div class="av av-green">PN</div><div class="team-name">Dr. Priya Nair</div><div class="team-role">Medical Officer</div></div>
+    <div class="team-card"><div class="av av-amber">VS</div><div class="team-name">Vikram Singh</div><div class="team-role">Security Guard</div></div>
+    <div class="team-card"><div class="av av-purple">NK</div><div class="team-name">Neha Kulkarni</div><div class="team-role">Maintenance Eng.</div></div>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-logo">SentinelAI</div>
+  <div class="footer-txt">AI-Based Smart Surveillance · No Raspberry Pi · Phone Camera Ready</div>
+  <a href="/dashboard" class="nav-cta">Live Dashboard →</a>
+</footer>
+
+</body>
+</html>
