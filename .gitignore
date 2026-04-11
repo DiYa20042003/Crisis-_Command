@@ -1,0 +1,17 @@
+# Virtual Environments
+.venv/
+venv/
+env/
+
+# Databases
+*.db
+*.sqlite3
+sentinel.db
+
+# Python Cache
+__pycache__/
+*.py[cod]
+
+# Images / Alerts
+alerts/*
+!alerts/.gitkeep
