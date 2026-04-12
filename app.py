@@ -7,23 +7,74 @@ Open: http://localhost:5000
 
 from flask import Flask, render_template, Response, jsonify, request
 from flask_socketio import SocketIO, emit
+from flask_sqlalchemy import SQLAlchemy
 import cv2, threading, time, json, os, random
 from datetime import datetime
-from collections import deque
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'sentinelai-secret-2024'
+
+# --- Database Config ---
+basedir = os.path.abspath(os.path.dirname(__file__))
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'sentinel.db')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
+
 socketio = SocketIO(app, cors_allowed_origins="*")
 
+# ─── Database Models ──────────────────────────────────────────────────────────
+class Incident(db.Model):
+    __tablename__ = 'incidents'
+    id = db.Column(db.Integer, primary_key=True)
+    type = db.Column(db.String(50), nullable=False)
+    location = db.Column(db.String(100), nullable=False)
+    severity = db.Column(db.String(20), nullable=False)
+    status = db.Column(db.String(20), default='active')
+    assigned = db.Column(db.String(200)) # Stored as JSON string
+    time = db.Column(db.String(20))
+    timestamp = db.Column(db.Float)
+    response_time = db.Column(db.Integer)
+    confidence = db.Column(db.Float)
+    notes = db.Column(db.Text)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "type": self.type,
+            "location": self.location,
+            "severity": self.severity,
+            "status": self.status,
+            "assigned": json.loads(self.assigned) if self.assigned else [],
+            "time": self.time,
+            "timestamp": self.timestamp,
+            "response_time": self.response_time,
+            "confidence": self.confidence,
+            "notes": self.notes or ""
+        }
+
+class LogEvent(db.Model):
+    __tablename__ = 'log_events'
+    id = db.Column(db.Integer, primary_key=True)
+    type = db.Column(db.String(50))
+    msg = db.Column(db.String(200))
+    time = db.Column(db.String(20))
+    ts = db.Column(db.Float)
+
+    def to_dict(self):
+        return {
+            "type": self.type,
+            "msg": self.msg,
+            "time": self.time,
+            "ts": self.ts
+        }
+
+
 # ─── State ────────────────────────────────────────────────────────────────────
-incidents   = []
-alert_log   = deque(maxlen=100)
 system_stats = {
     "fps": 0, "uptime": 0, "frames": 0,
     "detectors": ["fire","accident","violence","suspicious"],
     "camera_source": "Not connected", "start_time": time.time()
 }
-incident_counter = 1
 camera_frame = None
 frame_lock   = threading.Lock()
 surveillance_thread = None
@@ -45,7 +96,9 @@ PROTOCOLS = {
 
 # ─── Demo incident seeds ───────────────────────────────────────────────────────
 def seed_incidents():
-    global incident_counter
+    if Incident.query.first():
+        return # DB already has data
+
     seeds = [
         {"type":"suspicious","location":"Parking Level B3","status":"resolved"},
         {"type":"fire","location":"Kitchen Floor 2","status":"resolved"},
@@ -54,22 +107,20 @@ def seed_incidents():
     ]
     for s in seeds:
         proto = PROTOCOLS[s["type"]]
-        inc = {
-            "id": incident_counter,
-            "type": s["type"],
-            "location": s["location"],
-            "severity": proto["severity"],
-            "status": s["status"],
-            "assigned": proto["staff"],
-            "time": datetime.now().strftime("%H:%M"),
-            "timestamp": time.time() - random.randint(600,3600),
-            "response_time": proto["response_time"],
-            "notes": "",
-        }
-        incidents.append(inc)
-        incident_counter += 1
-
-seed_incidents()
+        inc = Incident(
+            type=s["type"],
+            location=s["location"],
+            severity=proto["severity"],
+            status=s["status"],
+            assigned=json.dumps(proto["staff"]),
+            time=datetime.now().strftime("%H:%M"),
+            timestamp=time.time() - random.randint(600,3600),
+            response_time=proto["response_time"],
+            notes="",
+            confidence=0.9
+        )
+        db.session.add(inc)
+    db.session.commit()
 
 # ─── Routes ───────────────────────────────────────────────────────────────────
 @app.route('/')
@@ -83,55 +134,58 @@ def dashboard():
 # ─── API ──────────────────────────────────────────────────────────────────────
 @app.route('/api/incidents')
 def get_incidents():
-    return jsonify(incidents)
+    incs = Incident.query.order_by(Incident.id.desc()).all()
+    return jsonify([i.to_dict() for i in incs])
 
 @app.route('/api/incidents/<int:iid>/resolve', methods=['POST'])
 def resolve_incident(iid):
-    for inc in incidents:
-        if inc['id'] == iid:
-            inc['status'] = 'resolved'
-            log_event("ok", f"Incident #{iid} resolved: {inc['location']}")
-            socketio.emit('incident_update', inc)
-            socketio.emit('stats_update', get_stats_dict())
-            return jsonify({"ok": True, "incident": inc})
+    inc = Incident.query.get(iid)
+    if inc:
+        inc.status = 'resolved'
+        db.session.commit()
+        log_event("ok", f"Incident #{iid} resolved: {inc.location}")
+        socketio.emit('incident_update', inc.to_dict())
+        socketio.emit('stats_update', get_stats_dict())
+        return jsonify({"ok": True, "incident": inc.to_dict()})
     return jsonify({"ok": False}), 404
 
 @app.route('/api/alert', methods=['POST'])
 def trigger_alert():
     """Called by the Python surveillance system when a detection fires."""
-    global incident_counter
     data = request.json or {}
     alert_type = data.get('type', 'suspicious')
     location   = data.get('location', 'Unknown')
     confidence = data.get('confidence', 0.85)
 
     proto = PROTOCOLS.get(alert_type, PROTOCOLS['suspicious'])
-    inc = {
-        "id": incident_counter,
-        "type": alert_type,
-        "location": location,
-        "severity": proto["severity"],
-        "status": "active",
-        "assigned": proto["staff"],
-        "time": datetime.now().strftime("%H:%M"),
-        "timestamp": time.time(),
-        "response_time": proto["response_time"],
-        "confidence": confidence,
-        "notes": data.get('notes', ''),
-    }
-    incidents.insert(0, inc)
-    incident_counter += 1
+    
+    inc = Incident(
+        type=alert_type,
+        location=location,
+        severity=proto["severity"],
+        status="active",
+        assigned=json.dumps(proto["staff"]),
+        time=datetime.now().strftime("%H:%M"),
+        timestamp=time.time(),
+        response_time=proto["response_time"],
+        confidence=confidence,
+        notes=data.get('notes', '')
+    )
+    db.session.add(inc)
+    db.session.commit()
 
+    inc_dict = inc.to_dict()
     log_event("alert", f"{alert_type.upper()} at {location} ({confidence:.0%} conf)")
-    socketio.emit('new_incident', inc)
+    socketio.emit('new_incident', inc_dict)
     socketio.emit('stats_update', get_stats_dict())
+    
     # Auto-notify assigned staff
     for staff_id in proto['staff']:
         s = STAFF[staff_id]
         socketio.emit('staff_notification', {
-            "staff": s, "incident": inc
+            "staff": s, "incident": inc_dict
         })
-    return jsonify({"ok": True, "incident_id": inc["id"]})
+    return jsonify({"ok": True, "incident_id": inc.id})
 
 @app.route('/api/stats')
 def get_stats():
@@ -139,21 +193,25 @@ def get_stats():
 
 @app.route('/api/log')
 def get_log():
-    return jsonify(list(alert_log))
+    logs = LogEvent.query.order_by(LogEvent.id.desc()).limit(100).all()
+    # Reverse so it's oldest first if needed, or youngest. In frontend it usually expects list. 
+    # Current deque is appended to. Let's return as ordered by ID desc
+    return jsonify([l.to_dict() for l in logs])
 
 @app.route('/api/report')
 def get_report():
-    resolved = [i for i in incidents if i['status'] == 'resolved']
-    active   = [i for i in incidents if i['status'] == 'active']
+    incs = Incident.query.all()
+    resolved = [i for i in incs if i.status == 'resolved']
+    active   = [i for i in incs if i.status == 'active']
     by_type  = {}
-    for inc in incidents:
-        by_type[inc['type']] = by_type.get(inc['type'], 0) + 1
-    avg_resp = sum(i['response_time'] for i in resolved) / max(len(resolved), 1)
+    for inc in incs:
+        by_type[inc.type] = by_type.get(inc.type, 0) + 1
+    avg_resp = sum(i.response_time for i in resolved) / max(len(resolved), 1) if resolved else 0
     return jsonify({
-        "total": len(incidents),
+        "total": len(incs),
         "resolved": len(resolved),
         "active": len(active),
-        "resolution_rate": round(len(resolved) / max(len(incidents), 1) * 100),
+        "resolution_rate": round(len(resolved) / max(len(incs), 1) * 100),
         "avg_response_sec": round(avg_resp),
         "by_type": by_type,
         "generated_at": datetime.now().isoformat(),
@@ -184,26 +242,37 @@ def video_feed():
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 def get_stats_dict():
     uptime = int(time.time() - system_stats["start_time"])
-    active = len([i for i in incidents if i['status'] == 'active'])
+    active_count = Incident.query.filter_by(status='active').count()
+    resolved_count = Incident.query.filter_by(status='resolved').count()
+    
+    # Teams deployed based on active incidents
+    active_incs = Incident.query.filter_by(status='active').all()
+    deployed = set()
+    for i in active_incs:
+        if i.assigned:
+            deployed.update(json.loads(i.assigned))
+            
     return {
         "fps":       round(system_stats["fps"], 1),
         "uptime":    uptime,
         "frames":    system_stats["frames"],
-        "active_incidents": active,
-        "resolved_today":   len([i for i in incidents if i['status'] == 'resolved']),
-        "teams_deployed":   len(set(s for i in incidents if i['status']=='active' for s in i['assigned'])),
+        "active_incidents": active_count,
+        "resolved_today":   resolved_count,
+        "teams_deployed":   len(deployed),
         "detectors": system_stats["detectors"],
         "camera":    system_stats["camera_source"],
     }
 
 def log_event(etype, msg):
-    alert_log.append({
-        "type": etype,
-        "msg": msg,
-        "time": datetime.now().strftime("%H:%M:%S"),
-        "ts": time.time()
-    })
-    socketio.emit('log_event', alert_log[-1])
+    lg = LogEvent(
+        type=etype,
+        msg=msg,
+        time=datetime.now().strftime("%H:%M:%S"),
+        ts=time.time()
+    )
+    db.session.add(lg)
+    db.session.commit()
+    socketio.emit('log_event', lg.to_dict())
 
 # ─── Camera thread ────────────────────────────────────────────────────────────
 def run_camera(source=0):
@@ -274,8 +343,12 @@ def run_camera(source=0):
 @socketio.on('connect')
 def on_connect():
     emit('stats_update', get_stats_dict())
-    emit('incidents_init', incidents)
-    emit('log_init', list(alert_log))
+    
+    incs = Incident.query.order_by(Incident.id.desc()).all()
+    emit('incidents_init', [i.to_dict() for i in incs])
+    
+    logs = LogEvent.query.order_by(LogEvent.id.asc()).limit(100).all()
+    emit('log_init', [l.to_dict() for l in logs])
 
 @socketio.on('simulate_alert')
 def on_simulate(data):
@@ -287,6 +360,11 @@ def on_simulate(data):
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
 if __name__ == '__main__':
+    # Initialize Database
+    with app.app_context():
+        db.create_all()
+        seed_incidents()
+
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--source', default='demo', help='Camera source (0, URL, or demo)')
