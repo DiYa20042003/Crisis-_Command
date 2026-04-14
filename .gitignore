@@ -18,6 +18,7 @@ node_modules/
 *.egg-info/
 dist/
 build/
+.gh/
 
 # Images / Alerts
 alerts/
