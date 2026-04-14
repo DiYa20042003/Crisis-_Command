@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>SentinelAI — Crisis Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+<style>
+:root{
+  --bg:#0a0a0c;--surface:#111116;--card:#15151c;--card2:#1a1a24;
+  --border:#ffffff0f;--border2:#ffffff18;
+  --text:#f0f0f0;--muted:#5a5a6a;--muted2:#8a8a9a;
+  --accent:#00e5a0;--red:#ff3b3b;--amber:#ffb020;--blue:#3b82f6;--purple:#a855f7;
+  --red-bg:rgba(255,59,59,.08);--amber-bg:rgba(255,176,32,.08);
+  --blue-bg:rgba(59,130,246,.08);--green-bg:rgba(0,229,160,.08);
+  --purple-bg:rgba(168,85,247,.08);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+
+/* TOP BAR */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1.25rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;gap:1rem;flex-wrap:wrap}
+.tb-left{display:flex;align-items:center;gap:.75rem}
+.logo{font-family:'Syne',sans-serif;font-weight:800;font-size:1rem;letter-spacing:-.3px;display:flex;align-items:center;gap:.5rem}
+.live-badge{display:flex;align-items:center;gap:.4rem;background:var(--red-bg);border:1px solid rgba(255,59,59,.2);color:var(--red);padding:.2rem .6rem;border-radius:99px;font-size:.7rem;font-weight:500;letter-spacing:.4px}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--red);animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.tb-center{display:flex;gap:1.5rem;align-items:center}
+.metric-chip{text-align:center}
+.mc-val{font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:800}
+.mc-lbl{font-size:.6rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.5px}
+.tb-right{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.sim-btn{padding:.3rem .7rem;border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--text);font-size:.72rem;cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif;display:flex;align-items:center;gap:.3rem}
+.sim-btn:hover{background:var(--card2)}
+.sim-btn.red{border-color:rgba(255,59,59,.3);color:var(--red)}
+.sim-btn.red:hover{background:var(--red-bg)}
+.sim-btn.amber{border-color:rgba(255,176,32,.3);color:var(--amber)}
+.sim-btn.amber:hover{background:var(--amber-bg)}
+.sim-btn.blue{border-color:rgba(59,130,246,.3);color:var(--blue)}
+.sim-btn.blue:hover{background:var(--blue-bg)}
+.sim-btn.purple{border-color:rgba(168,85,247,.3);color:var(--purple)}
+.sim-btn.purple:hover{background:var(--purple-bg)}
+#clock{font-family:'DM Mono',monospace;font-size:.75rem;color:var(--muted2);padding-left:.5rem;border-left:1px solid var(--border2)}
+
+/* MAIN GRID */
+.main{flex:1;display:grid;grid-template-columns:280px 1fr 280px;grid-template-rows:1fr 1fr;gap:1px;background:var(--border);overflow:hidden}
+.panel{background:var(--card);overflow:hidden;display:flex;flex-direction:column}
+.panel.span2{grid-row:1/3}
+.panel-hd{padding:.65rem .9rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.panel-title{font-size:.68rem;text-transform:uppercase;letter-spacing:.8px;color:var(--muted2);font-weight:500}
+.panel-body{flex:1;overflow-y:auto;padding:.75rem;scrollbar-width:thin;scrollbar-color:var(--border2) transparent}
+
+/* INCIDENTS */
+.inc-list{display:flex;flex-direction:column;gap:.5rem}
+.inc-card{border-radius:8px;padding:.65rem .75rem;cursor:pointer;border:1px solid transparent;transition:all .15s;position:relative;overflow:hidden}
+.inc-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:2px 0 0 2px}
+.inc-card.fire{background:var(--red-bg)}
+.inc-card.fire::before{background:var(--red)}
+.inc-card.violence{background:var(--purple-bg)}
+.inc-card.violence::before{background:var(--purple)}
+.inc-card.suspicious{background:var(--amber-bg)}
+.inc-card.suspicious::before{background:var(--amber)}
+.inc-card.accident{background:var(--blue-bg)}
+.inc-card.accident::before{background:var(--blue)}
+.inc-card.selected{border-color:var(--accent) !important}
+.inc-card:hover{opacity:.85}
+.inc-top{display:flex;align-items:center;justify-content:space-between;gap:.4rem}
+.inc-title{font-size:.8rem;font-weight:500;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.badge{padding:1px 7px;border-radius:4px;font-size:.6rem;font-weight:600;letter-spacing:.3px;white-space:nowrap}
+.badge.active{background:rgba(255,59,59,.2);color:var(--red)}
+.badge.assigned{background:rgba(255,176,32,.2);color:var(--amber)}
+.badge.resolved{background:rgba(0,229,160,.15);color:var(--accent)}
+.inc-meta{font-size:.68rem;color:var(--muted2);margin-top:.2rem}
+
+/* VIDEO FEED */
+.video-wrap{flex:1;display:flex;align-items:center;justify-content:center;background:#080810;position:relative;overflow:hidden}
+.video-wrap img{width:100%;height:100%;object-fit:cover}
+.video-overlay{position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none}
+.corner{position:absolute;width:20px;height:20px;border-color:var(--accent);border-style:solid;opacity:.6}
+.corner.tl{top:10px;left:10px;border-width:2px 0 0 2px}
+.corner.tr{top:10px;right:10px;border-width:2px 2px 0 0}
+.corner.bl{bottom:10px;left:10px;border-width:0 0 2px 2px}
+.corner.br{bottom:10px;right:10px;border-width:0 2px 2px 0}
+.vid-badge{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.7);border:1px solid var(--border2);color:var(--muted2);padding:.2rem .6rem;border-radius:4px;font-size:.65rem;font-family:'DM Mono',monospace;display:flex;align-items:center;gap:.4rem}
+.fps-badge{position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,.7);border:1px solid var(--border2);color:var(--accent);padding:.2rem .5rem;border-radius:4px;font-size:.65rem;font-family:'DM Mono',monospace}
+.alert-flash{position:absolute;inset:0;border:3px solid var(--red);opacity:0;border-radius:0;animation:none;pointer-events:none}
+.alert-flash.on{animation:flashBorder 1s ease 3}
+@keyframes flashBorder{0%,100%{opacity:0}50%{opacity:.8}}
+
+/* WORKFLOW */
+.workflow{display:flex;flex-direction:column;gap:.4rem;padding:.75rem}
+.wf-row{display:flex;align-items:center;gap:.6rem;padding:.45rem .6rem;border-radius:6px;border:1px solid transparent;transition:all .2s}
+.wf-row.done{background:rgba(0,229,160,.06);border-color:rgba(0,229,160,.15)}
+.wf-row.active{background:rgba(59,130,246,.08);border-color:rgba(59,130,246,.2)}
+.wf-row.pending{opacity:.4}
+.wf-dot2{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.wf-dot2.done{background:var(--accent)}
+.wf-dot2.active{background:var(--blue);animation:pulse 1s infinite}
+.wf-dot2.pending{background:var(--muted)}
+.wf-label{font-size:.78rem;font-weight:500;flex:1}
+.wf-time{font-size:.65rem;color:var(--muted2);font-family:'DM Mono',monospace}
+
+/* ASSIGNED STAFF */
+.staff-list{display:flex;flex-direction:column;gap:.45rem}
+.staff-row{display:flex;align-items:center;gap:.6rem;padding:.4rem .5rem;border-radius:6px;background:var(--card2)}
+.av{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;flex-shrink:0}
+.av.red{background:rgba(255,59,59,.2);color:var(--red)}
+.av.blue{background:rgba(59,130,246,.2);color:var(--blue)}
+.av.green{background:rgba(0,229,160,.2);color:var(--accent)}
+.av.amber{background:rgba(255,176,32,.2);color:var(--amber)}
+.av.purple{background:rgba(168,85,247,.2);color:var(--purple)}
+.staff-info{flex:1;min-width:0}
+.staff-name{font-size:.75rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.staff-task{font-size:.65rem;color:var(--blue)}
+.status-dot2{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.sd-on{background:#22c55e;animation:pulse .8s infinite}
+.sd-enroute{background:var(--amber)}
+.sd-idle{background:var(--muted)}
+
+/* TIMELINE */
+.tl{display:flex;flex-direction:column;gap:0}
+.tl-item{display:flex;gap:.6rem;padding-bottom:.75rem;position:relative}
+.tl-item:not(:last-child)::before{content:'';position:absolute;left:5px;top:14px;bottom:0;width:1px;background:var(--border2)}
+.tl-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0;margin-top:2px}
+.tl-dot.alert{background:var(--red)}
+.tl-dot.info{background:var(--blue)}
+.tl-dot.ok{background:var(--accent)}
+.tl-dot.warn{background:var(--amber)}
+.tl-dot.purple{background:var(--purple)}
+.tl-msg{font-size:.73rem;color:var(--text);line-height:1.4;flex:1}
+.tl-t{font-size:.62rem;color:var(--muted);font-family:'DM Mono',monospace;margin-top:.15rem}
+
+/* HEATMAP */
+.heatmap{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.hz{padding:.4rem .3rem;border-radius:5px;text-align:center;font-size:.6rem;font-weight:500;line-height:1.3}
+
+/* PERF BARS */
+.perf-rows{display:flex;flex-direction:column;gap:.55rem}
+.perf-row{display:flex;align-items:center;gap:.5rem}
+.perf-lbl{font-size:.7rem;color:var(--muted2);width:68px;flex-shrink:0}
+.perf-track{flex:1;height:5px;background:var(--border2);border-radius:3px;overflow:hidden}
+.perf-fill{height:100%;border-radius:3px;transition:width .6s}
+.perf-val{font-size:.68rem;color:var(--muted2);width:34px;text-align:right;font-family:'DM Mono',monospace}
+
+/* REPORT */
+.report-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.report-overlay.show{display:flex}
+.report-modal{background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:2rem;max-width:560px;width:90%;max-height:80vh;overflow-y:auto}
+.rm-title{font-family:'Syne',sans-serif;font-size:1.3rem;font-weight:800;margin-bottom:1rem}
+.rm-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-bottom:1.2rem}
+.rm-stat{background:var(--card);border-radius:8px;padding:.75rem;text-align:center}
+.rm-val{font-size:1.5rem;font-weight:700}
+.rm-lbl{font-size:.65rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.4px;margin-top:.2rem}
+.rm-section{margin-bottom:.8rem}
+.rm-section-title{font-size:.72rem;text-transform:uppercase;letter-spacing:.6px;color:var(--accent);margin-bottom:.4rem;font-weight:500}
+.rm-text{font-size:.82rem;color:var(--muted2);line-height:1.6}
+.rm-rec{display:flex;align-items:flex-start;gap:.4rem;margin-bottom:.3rem;font-size:.8rem;color:var(--muted2)}
+.rm-rec::before{content:'→';color:var(--accent);flex-shrink:0;margin-top:1px}
+.close-btn{background:var(--card2);border:1px solid var(--border2);color:var(--text);padding:.4rem 1rem;border-radius:6px;font-size:.82rem;cursor:pointer;margin-top:1rem;font-family:'DM Sans',sans-serif}
+.close-btn:hover{background:var(--card)}
+
+/* NOTIFICATION TOAST */
+.toast-wrap{position:fixed;top:60px;right:1rem;z-index:300;display:flex;flex-direction:column;gap:.5rem;pointer-events:none}
+.toast{padding:.65rem 1rem;border-radius:8px;font-size:.8rem;border:1px solid;max-width:320px;animation:toastIn .3s ease;pointer-events:auto}
+@keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
+.toast.danger{background:rgba(255,59,59,.12);border-color:rgba(255,59,59,.3);color:#ff8080}
+.toast.warn{background:rgba(255,176,32,.1);border-color:rgba(255,176,32,.25);color:#ffc850}
+.toast.ok{background:rgba(0,229,160,.08);border-color:rgba(0,229,160,.2);color:var(--accent)}
+.toast.info{background:rgba(59,130,246,.1);border-color:rgba(59,130,246,.25);color:#6bb3ff}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="tb-left">
+    <div class="logo">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="8" stroke="#00e5a0" stroke-width="1.5"/><circle cx="9" cy="9" r="3" fill="#00e5a0"/></svg>
+      SentinelAI
+    </div>
+    <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+    <span style="font-size:.7rem;color:var(--muted);display:none" id="camera-src"></span>
+  </div>
+  <div class="tb-center">
+    <div class="metric-chip"><div class="mc-val" id="tb-active" style="color:var(--red)">—</div><div class="mc-lbl">Active</div></div>
+    <div class="metric-chip"><div class="mc-val" id="tb-teams" style="color:var(--accent)">—</div><div class="mc-lbl">Teams</div></div>
+    <div class="metric-chip"><div class="mc-val" id="tb-fps" style="color:var(--blue)">—</div><div class="mc-lbl">FPS</div></div>
+    <div class="metric-chip"><div class="mc-val" id="tb-resolved" style="color:var(--amber)">—</div><div class="mc-lbl">Resolved</div></div>
+  </div>
+  <div class="tb-right">
+    <span style="font-size:.7rem;color:var(--muted2)">Simulate:</span>
+    <button class="sim-btn red" onclick="simulate('fire','Kitchen Floor 2')">Fire</button>
+    <button class="sim-btn purple" onclick="simulate('violence','Corridor B F1')">Violence</button>
+    <button class="sim-btn amber" onclick="simulate('suspicious','Parking B3')">Suspicious</button>
+    <button class="sim-btn blue" onclick="simulate('accident','Lobby Entrance')">Accident</button>
+    <button class="sim-btn" onclick="showReport()" style="border-color:var(--accent);color:var(--accent)">Report</button>
+    <!-- Change 1: Updated link to index.html -->
+    <a href="index.html" style="color:var(--muted2);font-size:.72rem;text-decoration:none;padding:.3rem .5rem;border:1px solid var(--border2);border-radius:6px">← Home</a>
+    <span id="clock"></span>
+  </div>
+</div>
+
+<!-- MAIN GRID -->
+<div class="main">
+
+  <!-- LEFT: INCIDENTS -->
+  <div class="panel">
+    <div class="panel-hd">
+      <span class="panel-title">Active Incidents</span>
+      <span id="inc-count" style="font-size:.65rem;color:var(--muted2)">0 incidents</span>
+    </div>
+    <div class="panel-body">
+      <div class="inc-list" id="inc-list">
+        <div style="font-size:.8rem;color:var(--muted);text-align:center;padding:2rem 0">No active incidents</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER: VIDEO + WORKFLOW -->
+  <div class="panel span2" style="grid-column:2">
+    <div class="panel-hd">
+      <span class="panel-title">Live Camera Feed</span>
+      <div style="display:flex;gap:.4rem;align-items:center">
+        <span id="detector-badges" style="display:flex;gap:.3rem"></span>
+      </div>
+    </div>
+    <div class="video-wrap" id="video-wrap">
+      <img src="/video_feed" id="vid" alt="Live Feed" onerror="this.style.display='none'">
+      <div class="video-overlay">
+        <div class="corner tl"></div><div class="corner tr"></div>
+        <div class="corner bl"></div><div class="corner br"></div>
+        <div class="vid-badge"><div class="live-dot" style="width:5px;height:5px"></div>SENTINELAI CAM-01</div>
+        <div class="fps-badge" id="fps-badge">0.0 FPS</div>
+        <div class="alert-flash" id="alert-flash"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT TOP: WORKFLOW + STAFF -->
+  <div class="panel">
+    <div class="panel-hd"><span class="panel-title">Response Workflow</span></div>
+    <div class="panel-body" style="padding:.5rem">
+      <div class="workflow" id="workflow">
+        <div class="wf-row done" id="wf-detect"><div class="wf-dot2 done"></div><div class="wf-label">Detect</div><div class="wf-time" id="wt-detect">—</div></div>
+        <div class="wf-row done" id="wf-decide"><div class="wf-dot2 done"></div><div class="wf-label">Decide &amp; Classify</div><div class="wf-time" id="wt-decide">—</div></div>
+        <div class="wf-row active" id="wf-assign"><div class="wf-dot2 active"></div><div class="wf-label">Assign Staff</div><div class="wf-time" id="wt-assign">—</div></div>
+        <div class="wf-row active" id="wf-coord"><div class="wf-dot2 active"></div><div class="wf-label">Coordinate</div><div class="wf-time" id="wt-coord">—</div></div>
+        <div class="wf-row pending" id="wf-track"><div class="wf-dot2 pending"></div><div class="wf-label">Track &amp; Monitor</div><div class="wf-time" id="wt-track">—</div></div>
+        <div class="wf-row pending" id="wf-report"><div class="wf-dot2 pending"></div><div class="wf-label">Report</div><div class="wf-time" id="wt-report">—</div></div>
+      </div>
+      <div style="margin:.4rem .75rem .3rem;font-size:.65rem;text-transform:uppercase;letter-spacing:.6px;color:var(--muted2)">Assigned Personnel</div>
+      <div class="staff-list" id="staff-list" style="padding:.1rem .5rem .5rem">
+        <div style="font-size:.75rem;color:var(--muted);padding:.5rem">Select an incident</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT BOTTOM: TIMELINE + HEATMAP + PERF -->
+  <div class="panel">
+    <div class="panel-hd">
+      <span class="panel-title">Activity Log</span>
+      <span style="font-size:.65rem;color:var(--muted2)" id="log-count">0 events</span>
+    </div>
+    <div class="panel-body">
+      <div class="tl" id="timeline"></div>
+      <div style="margin:.75rem 0 .4rem;font-size:.65rem;text-transform:uppercase;letter-spacing:.6px;color:var(--muted2)">Zone Heatmap</div>
+      <div class="heatmap" id="heatmap"></div>
+      <div style="margin:.75rem 0 .4rem;font-size:.65rem;text-transform:uppercase;letter-spacing:.6px;color:var(--muted2)">Response Times</div>
+      <div class="perf-rows">
+        <div class="perf-row"><div class="perf-lbl">Fire</div><div class="perf-track"><div class="perf-fill" style="width:82%;background:var(--red)"></div></div><div class="perf-val">1m52s</div></div>
+        <div class="perf-row"><div class="perf-lbl">Violence</div><div class="perf-track"><div class="perf-fill" style="width:67%;background:var(--purple)"></div></div><div class="perf-val">2m20s</div></div>
+        <div class="perf-row"><div class="perf-lbl">Suspicious</div><div class="perf-track"><div class="perf-fill" style="width:91%;background:var(--amber)"></div></div><div class="perf-val">1m38s</div></div>
+        <div class="perf-row"><div class="perf-lbl">Accident</div><div class="perf-track"><div class="perf-fill" style="width:55%;background:var(--blue)"></div></div><div class="perf-val">2m48s</div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-wrap" id="toasts"></div>
+
+<!-- REPORT MODAL -->
+<div class="report-overlay" id="report-overlay" onclick="this.classList.remove('show')">
+  <div class="report-modal" onclick="event.stopPropagation()">
+    <div class="rm-title">Incident Report</div>
+    <div style="font-size:.72rem;color:var(--muted2);margin-bottom:1rem" id="report-ts"></div>
+    <div class="rm-grid" id="report-stats"></div>
+    <div class="rm-section">
+      <div class="rm-section-title">Summary</div>
+      <div class="rm-text" id="report-summary"></div>
+    </div>
+    <div class="rm-section">
+      <div class="rm-section-title">Top Incident Zones</div>
+      <div class="rm-text" id="report-zones"></div>
+    </div>
+    <div class="rm-section">
+      <div class="rm-section-title">Recommendations</div>
+      <div id="report-recs"></div>
+    </div>
+    <button class="close-btn" onclick="document.getElementById('report-overlay').classList.remove('show')">Close Report</button>
+  </div>
+</div>
+
+<script>
+const STAFF_DATA = {
+  SEC:{name:'Riya Sharma',role:'Security Head',initials:'RS',color:'red'},
+  MGR:{name:'Arjun Patel',role:'Duty Manager',initials:'AP',color:'blue'},
+  MED:{name:'Dr. Priya Nair',role:'Medical Officer',initials:'PN',color:'green'},
+  GRD:{name:'Vikram Singh',role:'Guard',initials:'VS',color:'amber'},
+  ENG:{name:'Neha Kulkarni',role:'Maintenance',initials:'NK',color:'purple'},
+};
+const STAFF_TASKS = ['Secure perimeter','Coordinate response','Assess injuries','Contain threat','Document incident'];
+const ZONES = ['Lobby','Kitchen','Parking','Corridor','Pool','Gym','Lifts','Reception'];
+
+let incidents = [];
+let selected = null;
+let logEvents = [];
+let zoneData = {};
+ZONES.forEach(z => zoneData[z] = Math.floor(Math.random()*3));
+
+const socket = io();
+
+socket.on('connect', () => { toast('System connected','ok'); });
+socket.on('incidents_init', data => { incidents = data; renderAll(); });
+socket.on('new_incident', inc => {
+  incidents.unshift(inc);
+  flashAlert();
+  toast(`ALERT: ${inc.type.toUpperCase()} at ${inc.location}`,'danger');
+  zoneData[inc.location.split(' ')[0]] = (zoneData[inc.location.split(' ')[0]]||0) + 3;
+  renderAll();
+});
+socket.on('incident_update', inc => {
+  const idx = incidents.findIndex(i=>i.id===inc.id);
+  if(idx>=0) incidents[idx]=inc;
+  renderAll();
+});
+socket.on('stats_update', updateStats);
+socket.on('log_event', ev => {
+  logEvents.unshift(ev);
+  if(logEvents.length>50) logEvents.pop();
+  renderTimeline();
+});
+socket.on('log_init', data => { logEvents = data.reverse(); renderTimeline(); });
+
+function updateStats(s) {
+  document.getElementById('tb-active').textContent = s.active_incidents ?? '—';
+  document.getElementById('tb-teams').textContent = s.teams_deployed ?? '—';
+  document.getElementById('tb-fps').textContent = (s.fps||0).toFixed(1);
+  document.getElementById('tb-resolved').textContent = s.resolved_today ?? '—';
+  document.getElementById('fps-badge').textContent = (s.fps||0).toFixed(1)+' FPS';
+  if(s.detectors) {
+    const colors = {fire:'red',accident:'amber',violence:'purple',suspicious:'blue'};
+    document.getElementById('detector-badges').innerHTML = s.detectors.map(d=>
+      `<span style="font-size:.58rem;padding:1px 5px;border-radius:3px;background:var(--${colors[d]||'blue'}-bg,rgba(59,130,246,.1));color:var(--${colors[d]||'blue'});border:1px solid;border-color:rgba(255,255,255,.1)">${d.toUpperCase()}</span>`
+    ).join('');
+  }
+}
+
+function renderIncidents() {
+  const el = document.getElementById('inc-list');
+  const sorted = [...incidents].sort((a,b)=>a.status==='resolved'?1:-1);
+  el.innerHTML = sorted.length ? sorted.map(inc => `
+    <div class="inc-card ${inc.type} ${selected===inc.id?'selected':''}" onclick="selectIncident(${inc.id})">
+      <div class="inc-top">
+        <div class="inc-title">${inc.title||inc.type+' — '+inc.location}</div>
+        <span class="badge ${inc.status}">${inc.status.toUpperCase()}</span>
+      </div>
+      <div class="inc-meta">${inc.location} · ${inc.time}${inc.status!=='resolved'?` · <span style="cursor:pointer;color:var(--accent)" onclick="event.stopPropagation();resolveInc(${inc.id})">Resolve ✓</span>`:''}</div>
+    </div>`).join('') : '<div style="font-size:.8rem;color:var(--muted);text-align:center;padding:2rem 0">No incidents logged</div>';
+  document.getElementById('inc-count').textContent = incidents.length+' total';
+}
+
+function renderAssigned() {
+  const inc = incidents.find(i=>i.id===selected);
+  const el = document.getElementById('staff-list');
+  if(!inc) { el.innerHTML='<div style="font-size:.75rem;color:var(--muted);padding:.5rem">Select an incident</div>'; return; }
+  el.innerHTML = inc.assigned.map((k,i)=>{
+    const s = STAFF_DATA[k]; if(!s) return '';
+    const stats=['sd-on','sd-enroute','sd-on','sd-enroute','sd-idle'];
+    return `<div class="staff-row">
+      <div class="av ${s.color}">${s.initials}</div>
+      <div class="staff-info"><div class="staff-name">${s.name}</div><div class="staff-task">${STAFF_TASKS[i%STAFF_TASKS.length]}</div></div>
+      <div class="status-dot2 ${stats[i%stats.length]}"></div>
+    </div>`;
+  }).join('');
+
+  // Update workflow steps based on incident status
+  const steps = ['detect','decide','assign','coord','track','report'];
+  const doneCount = inc.status==='resolved' ? 6 : inc.status==='assigned' ? 4 : 3;
+  steps.forEach((s,i) => {
+    const row = document.getElementById('wf-'+s);
+    const dot = row?.querySelector('.wf-dot2');
+    if(!row || !dot) return;
+    if(i<doneCount) { row.className='wf-row done'; dot.className='wf-dot2 done'; }
+    else if(i===doneCount) { row.className='wf-row active'; dot.className='wf-dot2 active'; }
+    else { row.className='wf-row pending'; dot.className='wf-dot2 pending'; }
+  });
+  const t = inc.time;
+  ['detect','decide','assign'].forEach(s => document.getElementById('wt-'+s).textContent = t);
+}
+
+function renderTimeline() {
+  const el = document.getElementById('timeline');
+  const typeMap = {alert:'alert',ok:'ok',info:'info',warn:'warn',fire:'alert',violence:'purple'};
+  el.innerHTML = logEvents.slice(0,12).map(ev=>`
+    <div class="tl-item">
+      <div class="tl-dot ${typeMap[ev.type]||'info'}"></div>
+      <div>
+        <div class="tl-msg">${ev.msg}</div>
+        <div class="tl-t">${ev.time}</div>
+      </div>
+    </div>`).join('');
+  document.getElementById('log-count').textContent = logEvents.length+' events';
+}
+
+function renderHeatmap() {
+  const el = document.getElementById('heatmap');
+  const max = Math.max(...Object.values(zoneData), 1);
+  el.innerHTML = Object.entries(zoneData).slice(0,8).map(([z,v])=>{
+    const pct = v/max;
+    const bg = pct>.7?'rgba(255,59,59,.15)':pct>.4?'rgba(255,176,32,.1)':'rgba(255,255,255,.04)';
+    const col = pct>.7?'#ff5555':pct>.4?'#ffb020':'var(--muted2)';
+    return `<div class="hz" style="background:${bg};color:${col}">${z}<br>${v}</div>`;
+  }).join('');
+}
+
+function renderAll() { renderIncidents(); renderAssigned(); renderHeatmap(); }
+
+function selectIncident(id) { selected=id; renderIncidents(); renderAssigned(); }
+
+function resolveInc(id) {
+  // Replaced fetch with local state modification for local offline demo
+  const idx = incidents.findIndex(i => i.id === id);
+  if (idx >= 0) {
+    incidents[idx].status = 'resolved';
+    renderAll();
+    toast('Incident resolved', 'ok');
+  }
+}
+
+function simulate(type, location) {
+  socket.emit('simulate_alert', {type, location, confidence: 0.85 + Math.random()*.1});
+}
+
+function flashAlert() {
+  const el = document.getElementById('alert-flash');
+  el.classList.remove('on');
+  void el.offsetWidth;
+  el.classList.add('on');
+}
+
+function toast(msg, type='info') {
+  const wrap = document.getElementById('toasts');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(()=>el.remove(), 4000);
+}
+
+async function showReport() {
+  // Replaced fetch with mock report data for local offline demo
+  const r = {
+    total: 9,
+    resolved: 7,
+    active: 2,
+    resolution_rate: 78,
+    avg_response_sec: 134,
+    top_zones: ['Kitchen', 'Parking', 'Corridor'],
+    recommendations: [
+      'Enhance thermal monitoring in Kitchen Floor 2',
+      'Increase guard patrols in Parking B3',
+      'Review camera placement in Corridor B'
+    ]
+  };
+  
+  document.getElementById('report-ts').textContent = 'Generated: '+new Date().toLocaleString();
+  document.getElementById('report-stats').innerHTML = `
+    <div class="rm-stat"><div class="rm-val" style="color:var(--accent)">${r.total}</div><div class="rm-lbl">Total</div></div>
+    <div class="rm-stat"><div class="rm-val" style="color:var(--accent)">${r.resolution_rate}%</div><div class="rm-lbl">Resolved</div></div>
+    <div class="rm-stat"><div class="rm-val" style="color:var(--blue)">${Math.floor(r.avg_response_sec/60)}m${r.avg_response_sec%60}s</div><div class="rm-lbl">Avg Response</div></div>`;
+  document.getElementById('report-summary').textContent = `${r.total} incidents processed today. ${r.resolved} resolved, ${r.active} still active. Resolution rate: ${r.resolution_rate}%.`;
+  document.getElementById('report-zones').textContent = r.top_zones.join(' · ');
+  document.getElementById('report-recs').innerHTML = r.recommendations.map(rec=>`<div class="rm-rec">${rec}</div>`).join('');
+  document.getElementById('report-overlay').classList.add('show');
+
+  // Advance workflow to done
+  ['track','report'].forEach(s=>{
+    const row = document.getElementById('wf-'+s);
+    if(row){ row.className='wf-row done'; row.querySelector('.wf-dot2').className='wf-dot2 done'; }
+  });
+}
+
+setInterval(()=>{
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+},1000);
+
+// Load initial data (MOCKED for local file viewing)
+updateStats({
+  active_incidents: 2,
+  teams_deployed: 5,
+  fps: 24.5,
+  resolved_today: 7,
+  detectors: ['fire', 'violence', 'accident', 'suspicious']
+});
+
+incidents = [
+  { id: 1, type: 'fire', title: 'Fire Detected', location: 'Kitchen Floor 2', status: 'active', time: '13:41', assigned: ['SEC', 'MED'] },
+  { id: 2, type: 'suspicious', title: 'Suspicious Activity', location: 'Parking B3', status: 'assigned', time: '13:49', assigned: ['GRD'] },
+  { id: 3, type: 'violence', title: 'Violence Detected', location: 'Corridor B F1', status: 'resolved', time: '13:52', assigned: ['SEC', 'MGR'] }
+];
+renderAll();
+
+const mockLog = [
+  { type: 'alert', msg: 'FIRE detected · Kitchen Floor 2', time: '13:41' },
+  { type: 'info', msg: 'Riya Sharma + Dr. Nair dispatched', time: '13:42' },
+  { type: 'warn', msg: 'Suspicious activity · Parking B3', time: '13:49' },
+  { type: 'ok', msg: 'Incident #3 resolved', time: '13:52' },
+  { type: 'info', msg: 'System monitoring active...', time: '13:54' }
+];
+logEvents = mockLog.reverse();
+renderTimeline();
+renderHeatmap();
+
+</script>
+</body>
+</html>
