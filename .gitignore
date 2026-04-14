@@ -11,7 +11,13 @@ sentinel.db
 # Python Cache
 __pycache__/
 *.py[cod]
+*.pyo
+.env
+node_modules/
+.DS_Store
+*.egg-info/
+dist/
+build/
 
 # Images / Alerts
-alerts/*
-!alerts/.gitkeep
+alerts/

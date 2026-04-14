@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: sentinelai-crisis-command
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:$PORT app:app
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      # Optional: configure these for email/SMS notifications
+      # - key: GMAIL_USER
+      #   value: your@gmail.com
+      # - key: GMAIL_APP_PASSWORD
+      #   value: your-gmail-app-password
+      # - key: ALERT_EMAILS
+      #   value: admin@hotel.com,manager@hotel.com
+      # - key: TWILIO_ACCOUNT_SID
+      #   value: ACxxxxxxxx
+      # - key: TWILIO_AUTH_TOKEN
+      #   value: xxxxxxxx
+      # - key: TWILIO_FROM_NUMBER
+      #   value: +1xxxxxxxxxx
+      # - key: ALERT_PHONES
+      #   value: +91xxxxxxxxxx,+91xxxxxxxxxx

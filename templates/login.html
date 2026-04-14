@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>SentinelAI — Login</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0a0c;--surface:#111116;--card:#16161e;--border:#ffffff12;
+  --accent:#00e5a0;--text:#f0f0f0;--muted:#6b6b7a;--red:#ff3b3b;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:60px 60px;opacity:.3;pointer-events:none}
+.glow{position:fixed;top:30%;left:50%;transform:translate(-50%,-50%);width:600px;height:350px;background:radial-gradient(ellipse,rgba(0,229,160,.06) 0%,transparent 70%);pointer-events:none}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:2.5rem 2rem;width:100%;max-width:400px;position:relative;z-index:1}
+
+.logo{display:flex;align-items:center;gap:.5rem;font-family:'Syne',sans-serif;font-weight:800;font-size:1.15rem;margin-bottom:2rem;justify-content:center;text-decoration:none;color:var(--text)}
+.logo-dot{width:8px;height:8px;background:var(--accent);border-radius:50%;animation:blink 1.5s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+.card-title{font-family:'Syne',sans-serif;font-weight:800;font-size:1.4rem;margin-bottom:.3rem}
+.card-sub{font-size:.85rem;color:var(--muted);margin-bottom:2rem}
+
+.field{margin-bottom:1.1rem}
+.field label{display:block;font-size:.75rem;color:var(--muted);margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.6px}
+.field input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.65rem .9rem;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.9rem;outline:none;transition:border-color .2s}
+.field input:focus{border-color:rgba(0,229,160,.4)}
+.field input::placeholder{color:var(--muted)}
+
+.btn{width:100%;background:var(--accent);color:#000;border:none;border-radius:8px;padding:.7rem;font-family:'Syne',sans-serif;font-weight:700;font-size:.95rem;cursor:pointer;transition:all .2s;margin-top:.5rem;display:flex;align-items:center;justify-content:center;gap:.5rem}
+.btn:hover{opacity:.88;transform:translateY(-1px)}
+.btn-dot{width:6px;height:6px;background:#000;border-radius:50%;animation:blink 1.5s infinite}
+
+.divider{text-align:center;font-size:.75rem;color:var(--muted);margin:1.2rem 0;position:relative}
+.divider::before{content:'';position:absolute;top:50%;left:0;right:0;height:1px;background:var(--border)}
+.divider span{background:var(--card);padding:0 .8rem;position:relative}
+
+.demo-btn{width:100%;background:transparent;border:1px solid var(--border);border-radius:8px;padding:.65rem;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:.85rem;cursor:pointer;transition:all .2s}
+.demo-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+.back{text-align:center;margin-top:1.5rem;font-size:.8rem;color:var(--muted)}
+.back a{color:var(--accent);text-decoration:none}
+.back a:hover{text-decoration:underline}
+
+.err{background:rgba(255,59,59,.08);border:1px solid rgba(255,59,59,.2);color:#ff7070;border-radius:6px;padding:.5rem .8rem;font-size:.8rem;margin-bottom:1rem;display:none}
+.err.show{display:block}
+</style>
+</head>
+<body>
+<div class="glow"></div>
+<div class="card">
+  <a href="/" class="logo"><div class="logo-dot"></div>SentinelAI</a>
+  <div class="card-title">Welcome back</div>
+  <div class="card-sub">Sign in to access the Crisis Command Center</div>
+
+  <div class="err" id="err">Invalid credentials. Use admin / sentinel123</div>
+
+  <div class="field">
+    <label>Username</label>
+    <input type="text" id="username" placeholder="admin" autocomplete="username">
+  </div>
+  <div class="field">
+    <label>Password</label>
+    <input type="password" id="password" placeholder="••••••••" autocomplete="current-password">
+  </div>
+
+  <button class="btn" onclick="doLogin()">
+    <span class="btn-dot"></span>
+    Access Command Center
+  </button>
+
+  <div class="divider"><span>or</span></div>
+  <button class="demo-btn" onclick="window.location.href='/dashboard'">Continue as Guest (Demo Mode)</button>
+
+  <div class="back"><a href="/">← Back to landing page</a></div>
+</div>
+
+<script>
+// Demo credentials — in production, replace with real auth
+const DEMO_CREDS = {admin: 'sentinel123', manager: 'hotel2024', security: 'guard456'};
+
+function doLogin() {
+  const user = document.getElementById('username').value.trim();
+  const pass = document.getElementById('password').value.trim();
+  const err  = document.getElementById('err');
+
+  if (DEMO_CREDS[user] && DEMO_CREDS[user] === pass) {
+    sessionStorage.setItem('sentinel_user', user);
+    window.location.href = '/dashboard';
+  } else {
+    err.classList.add('show');
+    document.getElementById('password').value = '';
+  }
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+document.getElementById('username').value = 'admin';
+</script>
+</body>
+</html>

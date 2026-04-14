@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>SentinelAI — Crisis Orchestration for Hospitality</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --black:#0a0a0c;--surface:#111116;--card:#16161e;--border:#ffffff12;
+  --accent:#00e5a0;--text:#f0f0f0;--muted:#6b6b7a;
+  --red:#ff3b3b;--amber:#ffb020;--purple:#a855f7;--blue:#3b82f6;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--black);color:var(--text);font-family:'DM Sans',sans-serif;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");pointer-events:none;z-index:0;opacity:.4}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:.9rem 2.5rem;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;border-bottom:1px solid var(--border);backdrop-filter:blur(20px);background:rgba(10,10,12,.88)}
+.logo{display:flex;align-items:center;gap:.55rem;font-family:'Syne',sans-serif;font-weight:800;font-size:1.1rem;letter-spacing:-.4px;text-decoration:none;color:var(--text)}
+.logo-dot{width:7px;height:7px;background:var(--accent);border-radius:50%;animation:blink 1.5s ease-in-out infinite;flex-shrink:0}
+@keyframes blink{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(0,229,160,.4)}50%{opacity:.5;box-shadow:0 0 0 5px transparent}}
+.nav-links{display:flex;align-items:center;list-style:none;gap:.25rem}
+.nav-links>li>a{color:var(--muted);text-decoration:none;font-size:.85rem;padding:.45rem 1rem;border-radius:6px;display:block;transition:all .18s}
+.nav-links>li>a:hover{color:var(--text);background:rgba(255,255,255,.04)}
+.nav-cta{background:var(--accent);color:#000;padding:.42rem 1.1rem;border-radius:6px;font-size:.82rem;font-weight:600;text-decoration:none;transition:all .2s;display:flex;align-items:center;gap:.4rem;white-space:nowrap;flex-shrink:0}
+.nav-cta:hover{opacity:.85;transform:translateY(-1px)}
+.nav-cta-dot{width:6px;height:6px;border-radius:50%;background:#000;animation:blink 1.5s infinite;flex-shrink:0}
+
+/* HERO */
+.hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:7rem 2rem 5rem;position:relative;overflow:hidden}
+.hero-grid{position:absolute;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:60px 60px;opacity:.35}
+.hero-glow{position:absolute;top:28%;left:50%;transform:translate(-50%,-50%);width:750px;height:400px;background:radial-gradient(ellipse,rgba(0,229,160,.07) 0%,transparent 68%);pointer-events:none}
+.hero-glow2{position:absolute;top:68%;left:20%;width:500px;height:250px;background:radial-gradient(ellipse,rgba(255,59,59,.05) 0%,transparent 70%);pointer-events:none}
+.scan-line{position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(0,229,160,.5),transparent);animation:scan 5s ease-in-out infinite}
+@keyframes scan{0%{top:0;opacity:.4}50%{opacity:.15}100%{top:100%;opacity:.4}}
+.hero-badge{display:inline-flex;align-items:center;gap:.45rem;background:rgba(0,229,160,.06);border:1px solid rgba(0,229,160,.18);color:var(--accent);padding:.28rem .9rem;border-radius:99px;font-size:.72rem;font-weight:500;letter-spacing:.7px;margin-bottom:1.8rem;position:relative;z-index:1}
+.hero-badge::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--accent);animation:blink 1.5s infinite;flex-shrink:0}
+h1{font-family:'Syne',sans-serif;font-size:clamp(1.85rem,3.8vw,3rem);font-weight:800;line-height:1.12;letter-spacing:-1.5px;position:relative;z-index:1;max-width:680px;display:inline-block}
+h1 .hl{color:var(--accent)}
+.hero-sub{font-size:.95rem;color:var(--muted);max-width:520px;margin:1.4rem auto 0;line-height:1.78;position:relative;z-index:1;font-weight:300}
+.hero-actions{display:flex;gap:.8rem;margin-top:2.2rem;justify-content:center;position:relative;z-index:1;flex-wrap:wrap}
+.btn-access{background:var(--accent);color:#000;padding:.48rem 1.3rem;border-radius:6px;font-size:.88rem;font-weight:600;text-decoration:none;transition:all .2s;display:inline-flex;align-items:center;gap:.45rem}
+.btn-access:hover{opacity:.85;transform:translateY(-1px);box-shadow:0 8px 28px rgba(0,229,160,.22)}
+.btn-access-dot{width:6px;height:6px;border-radius:50%;background:#000;animation:blink 1.5s infinite;flex-shrink:0}
+.btn-ghost{border:1px solid var(--border);color:var(--muted);padding:.48rem 1.3rem;border-radius:6px;font-size:.88rem;text-decoration:none;transition:all .2s;display:inline-flex;align-items:center;gap:.4rem}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+.hero-stats{display:flex;gap:2.5rem;margin-top:3.8rem;position:relative;z-index:1;justify-content:center;flex-wrap:wrap}
+.hstat-num{font-family:'Syne',sans-serif;font-size:1.9rem;font-weight:800;color:var(--accent)}
+.hstat-lbl{font-size:.7rem;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;margin-top:.2rem}
+
+/* MARQUEE */
+.marquee-wrap{overflow:hidden;padding:1.1rem 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface)}
+.marquee{display:flex;gap:2.5rem;animation:mscroll 24s linear infinite;width:max-content}
+@keyframes mscroll{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+.marquee-item{display:flex;align-items:center;gap:.4rem;color:var(--muted);font-size:.76rem;font-weight:500;letter-spacing:.5px;white-space:nowrap}
+.mdot{width:4px;height:4px;border-radius:50%;background:var(--accent);flex-shrink:0}
+
+/* SECTIONS */
+.sw{padding:5rem 2rem;max-width:1100px;margin:0 auto;position:relative;z-index:1}
+.sec-title{font-family:'Syne',sans-serif;font-weight:800;letter-spacing:-1px;line-height:1.15;font-size:clamp(2rem,3.5vw,2.8rem)}
+.sec-sub{color:var(--muted);font-size:.9rem;margin-top:.85rem;max-width:480px;line-height:1.75;font-weight:300}
+.sec-divider{border:none;border-top:1px solid var(--border);margin:0}
+
+/* TECH CARDS */
+.tech-cats{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.1rem;margin-top:2.5rem}
+.tech-cat{background:var(--card);border:1px solid var(--border);border-radius:13px;padding:1.5rem;transition:border-color .2s}
+.tech-cat:hover{border-color:rgba(0,229,160,.25)}
+.tc-head{display:flex;align-items:center;gap:.55rem;margin-bottom:1.1rem}
+.tc-icon{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:.85rem;flex-shrink:0}
+.tc-label{font-size:.65rem;letter-spacing:1.8px;text-transform:uppercase;color:var(--accent);font-weight:600}
+.tc-pills{display:flex;flex-wrap:wrap;gap:.45rem}
+.tc-pill{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:.28rem .75rem;font-size:.76rem;font-weight:500;color:var(--text);transition:all .15s;cursor:default}
+.tc-pill:hover{border-color:var(--accent);color:var(--accent)}
+
+/* DETECT */
+.alert-types{display:grid;grid-template-columns:repeat(2,1fr);gap:1rem;margin:2.5rem auto 0;max-width:800px}
+@media(max-width:768px){.alert-types{grid-template-columns:1fr}}
+.alert-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.5rem;position:relative;overflow:hidden;transition:transform .2s}
+.alert-card:hover{transform:translateY(-2px)}
+.alert-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.ac-fire::before{background:var(--red)}.ac-violence::before{background:var(--purple)}
+.ac-accident::before{background:var(--blue)}.ac-suspicious::before{background:var(--amber)}
+.alert-title{font-family:'Syne',sans-serif;font-weight:700;font-size:.95rem;margin-bottom:.35rem}
+.alert-method{font-size:.78rem;color:var(--muted);line-height:1.6}
+.alert-tag{display:inline-block;padding:2px 9px;border-radius:4px;font-size:.64rem;font-weight:600;margin-top:.8rem;letter-spacing:.4px}
+.tag-crit{background:rgba(255,59,59,.1);color:#ff5555}
+.tag-high{background:rgba(168,85,247,.1);color:var(--purple)}
+.tag-med{background:rgba(255,176,32,.1);color:var(--amber)}
+
+/* TEAM */
+.team-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;margin-top:2.5rem}
+.team-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.2rem;text-align:center;transition:all .2s}
+.team-card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 25px rgba(0,229,160,.05)}
+.av{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;margin:0 auto .75rem}
+.av-red{background:rgba(255,59,59,.15);color:#ff5555}
+.av-blue{background:rgba(59,130,246,.15);color:#3b82f6}
+.av-green{background:rgba(0,229,160,.15);color:#00e5a0}
+.av-amber{background:rgba(255,176,32,.15);color:#ffb020}
+.av-purple{background:rgba(168,85,247,.15);color:#a855f7}
+.team-name{font-weight:500;font-size:.9rem;margin-bottom:.2rem;color:var(--text)}
+.team-role{font-size:.75rem;color:var(--muted)}
+
+/* NOTIFY SECTION */
+.notify-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:2rem}
+@media(max-width:700px){.notify-row{grid-template-columns:1fr}}
+.notify-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.5rem}
+.notify-icon{font-size:1.8rem;margin-bottom:.7rem}
+.notify-title{font-family:'Syne',sans-serif;font-weight:700;font-size:1rem;margin-bottom:.4rem}
+.notify-desc{font-size:.82rem;color:var(--muted);line-height:1.6}
+
+/* FOOTER */
+footer{border-top:1px solid var(--border);padding:1.4rem 2.5rem;display:flex;align-items:center;justify-content:space-between;position:relative;z-index:1;flex-wrap:wrap;gap:1rem}
+.footer-links{display:flex;gap:1.5rem;align-items:center}
+.footer-links a{color:var(--muted);font-size:.8rem;text-decoration:none;transition:color .2s;font-weight:500}
+.footer-links a:hover{color:var(--accent)}
+.sys-status{display:inline-flex;align-items:center;gap:.45rem;font-size:.74rem;color:var(--muted);font-weight:500;letter-spacing:.3px}
+.ss-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:blink 2s infinite;flex-shrink:0}
+.fade-up{opacity:0;transform:translateY(22px);animation:fadeUp .6s forwards}
+@keyframes fadeUp{to{opacity:1;transform:none}}
+.d1{animation-delay:.1s}.d2{animation-delay:.2s}.d3{animation-delay:.3s}.d4{animation-delay:.4s}
+
+.ic-detect{background:rgba(0,229,160,.08)}.ic-decide{background:rgba(59,130,246,.08)}
+.ic-assign{background:rgba(255,176,32,.08)}.ic-coord{background:rgba(168,85,247,.08)}
+.ic-track{background:rgba(255,59,59,.08)}.ic-report{background:rgba(0,229,160,.08)}
+.tc-bg-backend{background:rgba(0,229,160,.07)}.tc-bg-ai{background:rgba(59,130,246,.07)}
+.tc-bg-detect{background:rgba(255,176,32,.07)}.tc-bg-front{background:rgba(168,85,247,.07)}
+.tc-bg-stream{background:rgba(255,59,59,.07)}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="#home" class="logo"><div class="logo-dot"></div>SentinelAI</a>
+  <ul class="nav-links">
+    <li><a href="#capabilities">Capabilities</a></li>
+    <li><a href="#technologies">Technologies</a></li>
+    <li><a href="#notifications">Notifications</a></li>
+    <li><a href="/dashboard">Dashboard</a></li>
+  </ul>
+  <a href="/login" class="nav-cta"><span class="nav-cta-dot"></span>Command Center</a>
+</nav>
+
+<!-- HERO -->
+<div id="home" class="hero">
+  <div class="hero-grid"></div>
+  <div class="hero-glow"></div><div class="hero-glow2"></div>
+  <div class="scan-line"></div>
+  <div class="hero-badge fade-up">SDG 16 · PEACE, JUSTICE &amp; STRONG INSTITUTIONS</div>
+  <h1 class="fade-up d1">Real-Time<br><span class="hl">Crisis Response</span>
+    <span style="display:block;text-align:right;font-size:clamp(.9rem,2vw,1.1rem);color:var(--muted);font-weight:400;margin-top:.3rem;letter-spacing:.5px">Powered by AI</span>
+  </h1>
+  <p class="hero-sub fade-up d2">A centralized AI crisis management system for hospitality — detecting threats, deciding severity, dispatching the right personnel, and coordinating resolution in real time. Instant notifications via Gmail and SMS.</p>
+  <div class="hero-actions fade-up d3">
+    <a href="/login" class="btn-access"><span class="btn-access-dot"></span>Open Command Center</a>
+    <a href="#capabilities" class="btn-ghost">Explore Capabilities →</a>
+  </div>
+  <div class="hero-stats fade-up d4">
+    <div class="hstat"><div class="hstat-num">&lt;3s</div><div class="hstat-lbl">Incident Detection</div></div>
+    <div class="hstat"><div class="hstat-num">6</div><div class="hstat-lbl">Automated Stages</div></div>
+    <div class="hstat"><div class="hstat-num">Gmail</div><div class="hstat-lbl">Email Alerts</div></div>
+    <div class="hstat"><div class="hstat-num">SMS</div><div class="hstat-lbl">Instant Notify</div></div>
+  </div>
+</div>
+
+<!-- MARQUEE -->
+<div class="marquee-wrap">
+  <div class="marquee">
+    <div class="marquee-item"><div class="mdot"></div>FIRE DETECTION</div>
+    <div class="marquee-item"><div class="mdot"></div>GMAIL ALERTS</div>
+    <div class="marquee-item"><div class="mdot"></div>SMS NOTIFICATIONS</div>
+    <div class="marquee-item"><div class="mdot"></div>VIOLENCE DETECTION</div>
+    <div class="marquee-item"><div class="mdot"></div>CROWD MONITORING</div>
+    <div class="marquee-item"><div class="mdot"></div>AUTO STAFF DISPATCH</div>
+    <div class="marquee-item"><div class="mdot"></div>REAL-TIME DASHBOARD</div>
+    <div class="marquee-item"><div class="mdot"></div>INCIDENT REPORTS</div>
+    <div class="marquee-item"><div class="mdot"></div>FIRE DETECTION</div>
+    <div class="marquee-item"><div class="mdot"></div>GMAIL ALERTS</div>
+    <div class="marquee-item"><div class="mdot"></div>SMS NOTIFICATIONS</div>
+    <div class="marquee-item"><div class="mdot"></div>VIOLENCE DETECTION</div>
+    <div class="marquee-item"><div class="mdot"></div>CROWD MONITORING</div>
+    <div class="marquee-item"><div class="mdot"></div>AUTO STAFF DISPATCH</div>
+    <div class="marquee-item"><div class="mdot"></div>REAL-TIME DASHBOARD</div>
+    <div class="marquee-item"><div class="mdot"></div>INCIDENT REPORTS</div>
+  </div>
+</div>
+
+<!-- CAPABILITIES -->
+<div class="sw" id="capabilities">
+  <h2 class="sec-title">Core Capabilities</h2>
+  <p class="sec-sub">Every emergency is handled through a structured, automated pipeline — from detection to final resolution report.</p>
+  <div class="tech-cats">
+    <div class="tech-cat"><div class="tc-head"><div class="tc-icon ic-detect">🎯</div><div class="tc-label">Stage 01 · Detect</div></div><p style="font-size:.82rem;color:var(--muted);line-height:1.68">AI-powered real-time monitoring analyzes live camera feeds to identify threats including fire, violence, accidents and suspicious activity.</p></div>
+    <div class="tech-cat"><div class="tc-head"><div class="tc-icon ic-decide">⚡</div><div class="tc-label">Stage 02 · Decide</div></div><p style="font-size:.82rem;color:var(--muted);line-height:1.68">The orchestration layer classifies every confirmed incident as CRITICAL, HIGH or MEDIUM severity — selecting the correct response protocol instantly.</p></div>
+    <div class="tech-cat"><div class="tc-head"><div class="tc-icon ic-assign">👥</div><div class="tc-label">Stage 03 · Assign</div></div><p style="font-size:.82rem;color:var(--muted);line-height:1.68">Right personnel are automatically dispatched. Security, medical, managers — each role mapped to incident type and notified via Gmail + SMS.</p></div>
+    <div class="tech-cat"><div class="tc-head"><div class="tc-icon ic-coord">📡</div><div class="tc-label">Stage 04 · Coordinate</div></div><p style="font-size:.82rem;color:var(--muted);line-height:1.68">A centralized command dashboard keeps every deployed team aligned in real time with live status updates and task assignments.</p></div>
+    <div class="tech-cat"><div class="tc-head"><div class="tc-icon ic-track">📊</div><div class="tc-label">Stage 05 · Track</div></div><p style="font-size:.82rem;color:var(--muted);line-height:1.68">Every action logged with timestamps. Real-time activity feed, zone heatmaps and response performance metrics for full visibility.</p></div>
+    <div class="tech-cat"><div class="tc-head"><div class="tc-icon ic-report">📄</div><div class="tc-label">Stage 06 · Report</div></div><p style="font-size:.82rem;color:var(--muted);line-height:1.68">Automated incident reports generated and delivered to management with timelines, outcomes and data-driven recommendations.</p></div>
+  </div>
+</div>
+
+<hr class="sec-divider">
+
+<!-- NOTIFICATIONS -->
+<div class="sw" id="notifications">
+  <h2 class="sec-title">Instant Notifications</h2>
+  <p class="sec-sub">The moment an incident is detected, staff are alerted via Gmail and SMS — zero manual calls required.</p>
+  <div class="notify-row">
+    <div class="notify-card">
+      <div class="notify-icon">📧</div>
+      <div class="notify-title">Gmail Alerts</div>
+      <div class="notify-desc">Every incident triggers an immediate email to all configured recipients with incident type, severity, location, confidence, and assigned personnel list. Configure via <code style="color:var(--accent)">GMAIL_USER</code> env var.</div>
+    </div>
+    <div class="notify-card">
+      <div class="notify-icon">💬</div>
+      <div class="notify-title">SMS via Twilio</div>
+      <div class="notify-desc">Real-time SMS alerts sent instantly to staff phones. Includes incident summary, location, and team deployed. Configure via <code style="color:var(--accent)">TWILIO_ACCOUNT_SID</code> env vars.</div>
+    </div>
+  </div>
+</div>
+
+<hr class="sec-divider">
+
+<!-- TECHNOLOGIES -->
+<div class="sw" id="technologies">
+  <h2 class="sec-title">Tech Stack</h2>
+  <p class="sec-sub">No proprietary hardware. No cloud dependency for detection. Built entirely on battle-tested open source tools.</p>
+  <div class="tech-cats">
+    <div class="tech-cat"><div class="tc-head"><div class="tc-icon tc-bg-backend">🐍</div><div class="tc-label">Backend</div></div><div class="tc-pills"><span class="tc-pill">Python 3.8+</span><span class="tc-pill">Flask</span><span class="tc-pill">Flask-SocketIO</span><span class="tc-pill">SQLAlchemy</span><span class="tc-pill">Eventlet</span></div></div>
+    <div class="tech-cat"><div class="tc-head"><div class="tc-icon tc-bg-ai">🤖</div><div class="tc-label">AI &amp; Computer Vision</div></div><div class="tc-pills"><span class="tc-pill">OpenCV 4.8</span><span class="tc-pill">NumPy</span><span class="tc-pill">YOLOv8</span><span class="tc-pill">Ultralytics</span></div></div>
+    <div class="tech-cat"><div class="tc-head"><div class="tc-icon tc-bg-front">🖥</div><div class="tc-label">Frontend</div></div><div class="tc-pills"><span class="tc-pill">Vanilla HTML/CSS</span><span class="tc-pill">JavaScript</span><span class="tc-pill">Socket.IO Client</span></div></div>
+    <div class="tech-cat"><div class="tc-head"><div class="tc-icon" style="background:rgba(0,229,160,.07)">📨</div><div class="tc-label">Notifications</div></div><div class="tc-pills"><span class="tc-pill">Gmail SMTP</span><span class="tc-pill">Twilio SMS</span><span class="tc-pill">WebSockets</span></div></div>
+  </div>
+</div>
+
+<hr class="sec-divider">
+
+<!-- DETECTION -->
+<div class="sw" id="detections">
+  <h2 class="sec-title">AI Detection Modules</h2>
+  <p class="sec-sub">Each detection module uses specialized algorithms tuned for hospitality environments.</p>
+  <div class="alert-types">
+    <div class="alert-card ac-fire"><div class="alert-title">🔥 Fire Detection</div><div class="alert-method">Multi-layer HSV color filtering with brightness validation, flicker analysis and edge irregularity checks. 8-frame confirmation window eliminates false alarms.</div><div class="alert-tag tag-crit">CRITICAL SEVERITY</div></div>
+    <div class="alert-card ac-violence"><div class="alert-title">🥊 Violence Detection</div><div class="alert-method">Farneback optical flow combined with frame-difference burst analysis detects sudden chaotic motion spikes via pure mathematical OpenCV analysis.</div><div class="alert-tag tag-high">HIGH SEVERITY</div></div>
+    <div class="alert-card ac-accident"><div class="alert-title">🚗 Accident Detection</div><div class="alert-method">YOLOv8n detects vehicles and persons in real time. IoU overlap logic automatically flags collisions. Falls back to motion blob analysis when YOLO unavailable.</div><div class="alert-tag tag-high">HIGH SEVERITY</div></div>
+    <div class="alert-card ac-suspicious"><div class="alert-title">🚨 Suspicious Activity</div><div class="alert-method">Crowd density monitoring, intrusion zone alerts, loitering timers and after-hours activity flagging powered by YOLO person counting.</div><div class="alert-tag tag-med">MEDIUM SEVERITY</div></div>
+  </div>
+</div>
+
+<hr class="sec-divider">
+
+<!-- TEAM -->
+<div class="sw">
+  <h2 class="sec-title">Auto-Assigned Personnel</h2>
+  <p class="sec-sub">The orchestration layer knows which staff to deploy based on incident type. All notified instantly.</p>
+  <div class="team-row">
+    <div class="team-card"><div class="av av-red">RS</div><div class="team-name">Riya Sharma</div><div class="team-role">Head of Security</div></div>
+    <div class="team-card"><div class="av av-blue">AP</div><div class="team-name">Arjun Patel</div><div class="team-role">Duty Manager</div></div>
+    <div class="team-card"><div class="av av-green">PN</div><div class="team-name">Dr. Priya Nair</div><div class="team-role">Medical Officer</div></div>
+    <div class="team-card"><div class="av av-amber">VS</div><div class="team-name">Vikram Singh</div><div class="team-role">Security Guard</div></div>
+    <div class="team-card"><div class="av av-purple">NK</div><div class="team-name">Neha Kulkarni</div><div class="team-role">Maintenance Eng.</div></div>
+  </div>
+</div>
+
+<hr class="sec-divider">
+<footer>
+  <div class="footer-links">
+    <a href="/privacy">Privacy Policy</a>
+    <a href="/terms">Terms of Service</a>
+    <a href="/dashboard">Command Center</a>
+    <span style="color:var(--muted)">SentinelAI © 2024</span>
+  </div>
+  <div class="sys-status"><div class="ss-dot"></div>SYSTEM STATUS: All Systems Functional</div>
+</footer>
+</body>
+</html>
