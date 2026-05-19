@@ -1,21 +1,43 @@
 """
-bridge.py — Connects external surveillance to the SentinelAI dashboard
-=======================================================================
+bridge.py — Connects the SurveillanceSystem to the SentinelAI dashboard
+========================================================================
 
-Run the Flask dashboard first:
-    python app.py
+Use this when running CV detection on a separate machine / process from
+the Flask web server (e.g. Raspberry Pi → cloud-hosted dashboard).
 
-Then in a second terminal:
-    python bridge.py --source 0          # webcam
-    python bridge.py --source "http://192.168.1.15:4747/video"  # DroidCam
-    python bridge.py --source demo       # random demo alerts
+If detection runs on the same machine as app.py, you do NOT need bridge.py —
+app.py integrates smart_surveillance.SurveillanceSystem directly.
 
-FIX: Added retry logic + proper content-type header for POST requests
+Usage:
+    # Real camera (webcam / USB)
+    python bridge.py --source 0
+
+    # IP camera / DroidCam
+    python bridge.py --source "http://192.168.1.15:4747/video"
+
+    # Demo mode (random alerts every 15-40 s)
+    python bridge.py --source demo
+
+    # Remote dashboard
+    python bridge.py --source 0 --dashboard https://myapp.onrender.com
 """
 
-import sys, os, time, requests, random, argparse
+import sys
+import os
+import time
+import requests
+import random
+import argparse
+import logging
 
-DASHBOARD_URL = os.environ.get('DASHBOARD_URL', 'http://localhost:5000')
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(asctime)s] BRIDGE %(levelname)s: %(message)s",
+    datefmt="%H:%M:%S",
+)
+logger = logging.getLogger("SentinelAI.Bridge")
+
+DASHBOARD_URL = os.environ.get("DASHBOARD_URL", "http://localhost:5000")
 
 LOCATION_MAP = {
     "fire":       "Kitchen / Detected Zone",
@@ -24,11 +46,14 @@ LOCATION_MAP = {
     "suspicious": "CCTV Zone",
 }
 
-def post_alert(alert_type, confidence=0.85, location=None, retries=3):
+
+# ── Alert posting ─────────────────────────────────────────────────────────────
+def post_alert(alert_type, confidence=0.85, location=None, evidence_path="", retries=3):
     payload = {
-        "type":       alert_type,
-        "location":   location or LOCATION_MAP.get(alert_type, "Camera Zone"),
-        "confidence": round(confidence, 3),
+        "type":          alert_type,
+        "location":      location or LOCATION_MAP.get(alert_type, "Camera Zone"),
+        "confidence":    round(max(0.0, min(1.0, confidence)), 3),
+        "evidence_path": evidence_path or "",
     }
     for attempt in range(retries):
         try:
@@ -36,74 +61,113 @@ def post_alert(alert_type, confidence=0.85, location=None, retries=3):
                 f"{DASHBOARD_URL}/api/alert",
                 json=payload,
                 headers={"Content-Type": "application/json"},
-                timeout=3
+                timeout=5,
             )
-            print(f"[BRIDGE] Alert sent: {alert_type} → HTTP {r.status_code}")
-            return True
+            if r.status_code == 200:
+                logger.info(f"Alert sent: {alert_type} (conf={confidence:.2f}) → HTTP {r.status_code}")
+                return True
+            elif r.status_code == 429:
+                logger.warning("Rate-limited by dashboard — backing off 3 s.")
+                time.sleep(3)
+            else:
+                logger.warning(f"Dashboard returned HTTP {r.status_code}: {r.text[:120]}")
+                return False
         except requests.exceptions.ConnectionError:
             if attempt < retries - 1:
+                logger.warning(f"Dashboard not reachable (attempt {attempt + 1}/{retries}), retrying...")
                 time.sleep(2)
             else:
-                print(f"[BRIDGE] Dashboard not reachable at {DASHBOARD_URL}. Is app.py running?")
+                logger.error(f"Dashboard unreachable at {DASHBOARD_URL}. Is app.py running?")
     return False
 
 
-def run_surveillance(source):
-    try:
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'smart_surveillance'))
-        from surveillance import SurveillanceSystem
+def _wait_for_dashboard(timeout=30):
+    """Block until /health responds or timeout expires."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            r = requests.get(f"{DASHBOARD_URL}/health", timeout=2)
+            if r.status_code in (200, 503):
+                logger.info("Dashboard is up.")
+                return True
+        except Exception:
+            pass
+        time.sleep(2)
+    logger.warning("Dashboard did not respond within timeout — proceeding anyway.")
+    return False
 
-        system = SurveillanceSystem(
-            source=source,
-            features={"fire": True, "accident": True, "violence": True, "suspicious": True},
-            alert_dir="alerts",
-            confidence=0.5,
+
+# ── Real surveillance mode ────────────────────────────────────────────────────
+def run_surveillance(source):
+    """
+    Load smart_surveillance.SurveillanceSystem, attach an alert callback
+    that forwards detections to the remote dashboard via /api/alert.
+    """
+    try:
+        sys.path.insert(0, os.path.dirname(__file__))
+        from smart_surveillance import SurveillanceSystem
+    except ImportError:
+        logger.error(
+            "smart_surveillance.py not found next to bridge.py.\n"
+            "  Expected: %s/smart_surveillance.py",
+            os.path.dirname(os.path.abspath(__file__)),
+        )
+        logger.info("Falling back to demo alert mode.")
+        _demo_alerts()
+        return
+
+    _wait_for_dashboard()
+
+    def on_alert(alert_type, confidence, location, evidence_path=""):
+        post_alert(
+            alert_type=alert_type,
+            confidence=confidence,
+            location=location,
+            evidence_path=evidence_path,
         )
 
-        original_handle = system.alert_manager.handle
-        def bridge_handle(alert, frame):
-            original_handle(alert, frame)
-            post_alert(
-                alert_type=alert["type"],
-                confidence=alert.get("confidence", 0.8),
-                location=LOCATION_MAP.get(alert["type"], "Camera Zone"),
-            )
-
-        system.alert_manager.handle = bridge_handle
-        print(f"[BRIDGE] Surveillance running → posting alerts to {DASHBOARD_URL}")
-        system.run()
-
-    except ImportError:
-        print("[BRIDGE] smart_surveillance not found. Falling back to demo alert mode.")
+    logger.info(f"Starting SurveillanceSystem on source: {source}")
+    system = SurveillanceSystem(alert_manager=on_alert, camera_source=source)
+    try:
+        system.start()   # blocking
+    except KeyboardInterrupt:
+        system.stop()
+        logger.info("Bridge stopped by user.")
+    except RuntimeError as exc:
+        logger.error(f"SurveillanceSystem error: {exc}")
+        logger.info("Falling back to demo alert mode.")
         _demo_alerts()
 
 
+# ── Demo mode ─────────────────────────────────────────────────────────────────
 def _demo_alerts():
-    """Send periodic demo alerts to the dashboard for testing."""
-    types = ["fire", "violence", "suspicious", "accident"]
-    print(f"[BRIDGE] Demo mode — sending random alerts every 15–40s to {DASHBOARD_URL}")
-    # Wait for dashboard to be ready
-    print("[BRIDGE] Waiting for dashboard to start...")
-    for _ in range(10):
-        try:
-            requests.get(f"{DASHBOARD_URL}/api/stats", timeout=2)
-            print("[BRIDGE] Dashboard is up! Starting demo alerts.")
-            break
-        except Exception:
-            time.sleep(2)
+    """Send periodic random alerts for testing without a real camera."""
+    types = list(LOCATION_MAP.keys())
+    _wait_for_dashboard()
+    logger.info(f"Demo mode — sending random alerts every 15-40 s to {DASHBOARD_URL}")
 
     while True:
         delay = random.randint(15, 40)
-        print(f"[BRIDGE] Next alert in {delay}s...")
+        logger.info(f"Next demo alert in {delay} s...")
         time.sleep(delay)
         t = random.choice(types)
-        post_alert(t, confidence=round(0.70 + random.random() * 0.25, 2))
+        post_alert(
+            alert_type=t,
+            confidence=round(0.70 + random.random() * 0.25, 2),
+        )
 
 
+# ── Entry point ───────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="SentinelAI Surveillance Bridge")
-    parser.add_argument("--source", default="demo", help="Camera source: 0, URL, or demo")
-    parser.add_argument("--dashboard", default=None, help="Override dashboard URL")
+    parser.add_argument(
+        "--source", default="demo",
+        help="Camera source: 0 (webcam), IP URL, or 'demo'",
+    )
+    parser.add_argument(
+        "--dashboard", default=None,
+        help="Override dashboard URL (default: http://localhost:5000)",
+    )
     args = parser.parse_args()
 
     if args.dashboard:
@@ -115,12 +179,12 @@ if __name__ == "__main__":
     elif source == "demo":
         source = None
 
-    print("=" * 55)
+    print("=" * 56)
     print("  SentinelAI — Surveillance Bridge")
-    print("=" * 55)
+    print("=" * 56)
     print(f"  Source    : {source or 'Demo mode'}")
     print(f"  Dashboard : {DASHBOARD_URL}/dashboard")
-    print("=" * 55)
+    print("=" * 56)
 
     if source is not None:
         run_surveillance(source)
