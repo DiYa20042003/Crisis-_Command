@@ -20,7 +20,7 @@ from flask import Flask, render_template, Response, jsonify, request
 from flask_socketio import SocketIO, emit
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
-import cv2, threading, time, json, os, random
+import cv2, threading, time, json, os, random, secrets
 from datetime import datetime
 
 # ── Optional notification libs (gracefully absent) ──────────────────────────
@@ -40,7 +40,7 @@ except ImportError:
 
 # ── App setup ────────────────────────────────────────────────────────────────
 app = Flask(__name__, template_folder='templates')
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'sentinelai-secret-2024')
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
 CORS(app)
 
 # Database
@@ -283,7 +283,7 @@ def get_incidents():
 
 @app.route('/api/incidents/<int:iid>/resolve', methods=['POST'])
 def resolve_incident(iid):
-    inc = Incident.query.get(iid)
+    inc = db.session.get(Incident, iid)
     if inc:
         inc.status = 'resolved'
         db.session.commit()
@@ -297,19 +297,25 @@ def resolve_incident(iid):
 def trigger_alert():
     """Called by bridge.py or external surveillance when a detection fires."""
     data       = request.json or {}
-    alert_type = data.get('type', 'suspicious')
-    location   = data.get('location', 'Unknown')
-    confidence = float(data.get('confidence', 0.85))
-    notes      = data.get('notes', '')
+    alert_type = str(data.get('type', 'suspicious')).strip().lower()
+    if alert_type not in PROTOCOLS:
+        alert_type = 'suspicious'
+    location   = str(data.get('location', 'Unknown')).strip()[:100] or 'Unknown'
+    try:
+        confidence = float(data.get('confidence', 0.85))
+    except (ValueError, TypeError):
+        confidence = 0.85
+    confidence = max(0.0, min(1.0, confidence))
+    notes      = str(data.get('notes', '')).strip()[:500]
     inc_dict   = create_incident(alert_type, location, confidence, notes)
-    return jsonify({"ok": True, "incident_id": inc_dict['id']})
+    return jsonify({"ok": True, "incident_id": inc_dict['id']}), 201
 
 @app.route('/api/send_notification', methods=['POST'])
 def send_notification_endpoint():
     """Manually send email/SMS for a given incident ID."""
     data = request.json or {}
     iid  = data.get('incident_id')
-    inc  = Incident.query.get(iid) if iid else None
+    inc  = db.session.get(Incident, iid) if iid else None
     if not inc:
         return jsonify({"ok": False, "error": "Incident not found"}), 404
     send_notifications_async(inc.to_dict())
